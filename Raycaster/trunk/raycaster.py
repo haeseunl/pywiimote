@@ -33,11 +33,21 @@ how big each map is, ad what direction the player is looking in.
 """
 import math
 class Raycaster(object):
+    x = 5
     """ pass surf as a subsurface of the display, otherwise the raycasting will cover the whole screen. """
-    def getCachedTexture(textureoffset,height,slicex):
-        pause
-    def __init__(self, themap, gridsize, displaysurf, texturelist, floortexture, ceilingtexture, camerapos, cameradir, FOV=60,
-                 cameradistance=None):
+    def _getCachedTexture(self,textureoffset,height,slicex):
+        """Never returns bigger than the gridsize"""
+        #print "THIS IS THE TEXTURE OFFSET: " + str(textureoffset)
+        textureoffset = 0
+        texture = self.textures[textureoffset]
+        texture = pygame.transform.scale(texture,(height,height))
+        surf = pygame.Surface((1,height))
+        surf.blit(texture,(0,0),(slicex,0,1,height))
+        return surf
+        print "You just called getcachedtexture!"
+        pass
+    def __init__(self, themap, gridsize, displaysurf, texturelist, floortexture,
+                 ceilingtexture, camerapos, cameradir, FOV=60, cameradistance=None):
         self.map = themap
         self.gridsize = gridsize
         self.textures = texturelist
@@ -47,15 +57,15 @@ class Raycaster(object):
         self.cameradir = cameradir
         
         self.display = displaysurf
-        self.centerx = self.displaysurf.get_width() / 2
-        self.width = self.displaysurf.get_width() / 2
-        self.setDisplaySurface(displaysurf)
+        self.centerx = self.display.get_width() / 2
+        self.width = self.display.get_width() / 2
+        self.setDisplaySurface(self.display)
         self.FOV = FOV
         self.FOVradians = math.radians(FOV)
 
         self.FPS = 0
         if not cameradistance:
-            self.cameradistance = self.centerx / math.tan(FOVradians)
+            self.cameradistance = self.centerx / math.tan(self.FOVradians)
         else:
             self.cameradistance = cameradistance
         #self.tancache = [math.tan(math.radians(x)) for x in range(360)]
@@ -65,25 +75,23 @@ class Raycaster(object):
     def setDisplaySurface(self, surface):
         """ setDisplaySurface (pygame.Surface new_surface) -> None """
         self.display = surface
-        self.width = self.surface.get_width()
-        self.height = self.surface.get_height()
+        self.width = self.display.get_width()
+        self.height = self.display.get_height()
         self.centerx = self.width / 2
         self.centery = self.height / 2
-        
-
 
     def ShowFPS(self, position, font, size): #size is font point size.
         """ MAKE THIS CALCULATE THE FPS!!!!"""
         self.display.blit(font.render(self.FPS,0,(255,255,255)),position)
 
-    def _castDisplay():
+    def _castDisplay(self):
         #plane = (320,200)
         #planecenter = (160,100)
         #planedist = (plane[0]/2) / math.tan(math.radians(FOV/2))
-        rayincrement = self.FOV / float(plane[0])
-        rayangle = playerangle + FOV / 2 #will this cast invertedly?
+        rayincrement = self.FOV / float(self.width)
+        rayangle = self.cameradir + self.FOV / 2 #will this cast invertedly?
         
-        playerangle = playerangle % 360
+        self.cameradir = self.cameradir % 360# is this necessary?
         
         scaling = []#holds distances to walls
         wallvalues = []#what type of wall was at each location
@@ -96,7 +104,7 @@ class Raycaster(object):
             closestpoint = None
             distance = None
             denom = abs(math.cos(rayrad))
-            correction = math.cos(math.radians(playerangle-rayangle))
+            correction = math.cos(math.radians(self.cameradir-rayangle))
             #if denom 
             if horizint and not vertint:
                 coltype.append(0)
@@ -120,23 +128,23 @@ class Raycaster(object):
                     coltype.append(1)
                     closestpoint = vertint
                     distance = abs(vertdist)
-            #no else necessary
 
+            #HERE we are assuming that they didn't make a map with holes in it,
+            #because this would result in the closest point being infinity.
 
             #if closestpoint and (x == 0 or x == plane[0]-1):
-            if closestpoint:
-                drawray(surf,playerpos,closestpoint,[(closestpoint,2)])
-            wallvalues.append(the_map[int(closestpoint[1]) / gridsize][int(closestpoint[0]) / gridsize])
+            #if closestpoint:
+                #drawray(surf,playerpos,closestpoint,[(closestpoint,2)])
+            wallvalues.append(self.map[int(closestpoint[1]) / self.gridsize][int(closestpoint[0]) / self.gridsize])
             collisionlocation.append(closestpoint)
             scaling.append(distance)
 
-        return (wallvalues, (coltype,collisionlocation), scaling)
+        return (wallvalues,coltype,collisionlocation, scaling)
     
     def _castRay(self,rayangle):
         """ returns first horizontal & vertical intersections (or none for either or both)"""
 
-        #todo: wrap angle values at 360?
-        
+        #todo: wrap angle values at 360? NO.
         #if rayangle >= 360:
         rayangle = rayangle % 360 #even wraps negative values correctly, (floats too i think)
         rayrad = math.radians(rayangle)
@@ -147,114 +155,116 @@ class Raycaster(object):
         #Horizontal intersections
         if rayangle < 180 and rayangle != 0 and rayangle != 90:#pointing up
             stepy = -self.gridsize
-            pointy = (self.camerapos[1] / gridsize) * gridsize -.001
-            stepx = gridsize/math.tan(rayrad)
+            pointy = (self.camerapos[1] / self.gridsize) * self.gridsize -.001
+            stepx = self.gridsize/math.tan(rayrad)
         elif rayangle > 180 and rayangle != 270:#pointing down
-            stepy = gridsize
-            pointy = (self.camerapos[1] / gridsize) * gridsize + gridsize#i'm sure there's a better way to do this
-            stepx = -(gridsize/math.tan(rayrad))
+            stepy = self.gridsize
+            pointy = (self.camerapos[1] / self.gridsize) * self.gridsize + self.gridsize#i'm sure there's a better way to do this
+            stepx = -(self.gridsize/math.tan(rayrad))
 
         elif rayangle == 90:        
-            stepy = -gridsize
-            pointy = (self.camerapos[1] / gridsize) * gridsize - .001#problem b/c of angle projection' makes walls stick out if angle of
+            stepy = -self.gridsize
+            pointy = (self.camerapos[1] / self.gridsize) * self.gridsize - .001#problem b/c of angle projection' makes walls stick out if angle of
             #ray is far off of FOV. may have something to do with not casting ray as integer or something?
             #fixed this way, anyway
             stepx = 0
             pointx = self.camerapos[0]
         elif rayangle == 270:
                     
-            stepy = gridsize
-            pointy = (self.camerapos[1] / gridsize) * gridsize + gridsize
+            stepy = self.gridsize
+            pointy = (self.camerapos[1] / self.gridsize) * self.gridsize + self.gridsize
             stepx = 0
             pointx = self.camerapos[0]
 
         else:
             pass#horizint will stay None
 
-        
-        
-
         if rayangle != 0 and rayangle != 180:
             if rayangle != 90 and rayangle != 270:
                 #we have the y-coord of first intersection point to check
                 #let's get the x coord (case: 90/270 pointx is just ray start b/c ray x-component = 0.)
                 pointx = self.camerapos[0] + (self.camerapos[1] - pointy) / math.tan(rayrad)
-            mapx = int(pointx)/gridsize
-            mapy = int(pointy)/gridsize
-            
-            
-            while mapx >= 0 and mapx < len(the_map[0]) and mapy >= 0 and mapy < len(the_map):
+                
+            mapx = int(pointx)/self.gridsize
+            mapy = int(pointy)/self.gridsize            
+            while mapx >= 0 and mapx < len(self.map[0]) and mapy >= 0 and mapy < len(self.map):
                 #should work for non-square maps, assuming rectangular
-                if the_map[mapy][mapx]:#nonzero, therefore wall
-                    
+                if self.map[mapy][mapx]:#nonzero, therefore wall                    
                     horizint = (pointx,pointy)
                     break
                 
                 pointx += stepx
                 pointy += stepy
-                mapx = int(pointx)/gridsize
-                mapy = int(pointy)/gridsize
+                mapx = int(pointx)/self.gridsize
+                mapy = int(pointy)/self.gridsize
         #------------------------------------
 
         #Vertical intersections
         if rayangle > 90 and rayangle < 270:#pointing left
-            stepx = -gridsize
-            pointx = (self.camerapos[0] / gridsize) * gridsize - .001
-            stepy = gridsize*math.tan(rayrad)
+            stepx = -self.gridsize
+            pointx = (self.camerapos[0] / self.gridsize) * self.gridsize - .001
+            stepy = self.gridsize * math.tan(rayrad)
         else:#pointing right
-            stepx = gridsize
-            pointx = (self.camerapos[0] / gridsize) * gridsize + gridsize#i'm sure there's a better way to do this
-            stepy = -(gridsize*math.tan(rayrad))
+            stepx = self.gridsize
+            pointx = (self.camerapos[0] / self.gridsize) * self.gridsize + self.gridsize#i'm sure there's a better way to do this
+            stepy = -(self.gridsize*math.tan(rayrad))
 
         pointy = self.camerapos[1] + (self.camerapos[0] - pointx) * math.tan(rayrad)
         
-        mapx = int(pointx)/gridsize
-        mapy = int(pointy)/gridsize
+        mapx = int(pointx)/self.gridsize
+        mapy = int(pointy)/self.gridsize
         
-        while mapx >= 0 and mapx < len(the_map[0]) and mapy >= 0 and mapy < len(the_map):
+        while mapx >= 0 and mapx < len(self.map[0]) and mapy >= 0 and mapy < len(self.map):
             #should work for non-square maps, assuming rectangular
-            if the_map[mapy][mapx]:#nonzero, therefore wall
+            if self.map[mapy][mapx]:#nonzero, therefore wall
                 vertint = (pointx,pointy)
                 break
             pointx += stepx
             pointy += stepy
-            mapx = int(pointx)/gridsize
-            mapy = int(pointy)/gridsize
+            mapx = int(pointx)/self.gridsize
+            mapy = int(pointy)/self.gridsize
         return (horizint,vertint)
 
 
 
 
-def castdisplay(screen, offset, textures, texturetype, collisioninfo, scaling):
-    #WILL crash if no collision location ( == None)
-    #assumes offset is an int
-    width = 320
-    height = 200
-    mid = height / 2
-    collisiontype,collisionlocation = collisioninfo
-    screen.fill((20,20,190),(offset,0,width,mid))
-    screen.fill((190,20,20),(offset,mid,width,mid))
-    
-    #print scaling[0]
-    for x in range(320):
-        if scaling[x]:
-            sliceheight = 32 / scaling[x] * 277
-            #texture = pygame.transform.scale(textures[texturetype[x]-1],(sliceheight,sliceheight))
-            texturestrip = 
-            heightoffset = sliceheight - height
-            if heightoffset > 0:
-                heightoffset /= 2
-            else:
-                heightoffset = 0
-            if collisiontype[x]:#vertical collision
-                slicerect = [int(collisionlocation[x][1]) % 32, heightoffset,1, sliceheight-heightoffset]
-                blitlocation = (offset + x, mid - sliceheight / 2)
-            else:#horizontal collision
-                slicerect = [int(collisionlocation[x][0]) % 32, heightoffset,1, sliceheight-heightoffset]
-                blitlocation = (offset + x, mid - sliceheight / 2)
-            screen.blit(texture,blitlocation,slicerect)
-
-
+    def update(self):
+        #WILL crash if no collision location ( == None)
+        print "running update now"
+        wallvalues,collisiontype,collisionlocation, scaling = self._castDisplay()
+        self.display.fill((20,20,190),(0,0,self.width,self.centery))
+        self.display.fill((190,20,20),(0,self.centery,self.width,self.centery))
+        
+        #print scaling[0]
+        for x in range(self.width):
+            if scaling[x]:
+                sliceheight = (self.gridsize / 2) / scaling[x] * self.cameradistance
+                #texture = pygame.transform.scale(textures[texturetype[x]-1],(sliceheight,sliceheight))
+                
+                                                      
+                if collisiontype[x]:#vertical collision
+                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,int(collisionlocation[x][0]) % gridsize)
+                    sliceheight = min(sliceheight,self.gridsize)
+                    blitlocation = (x, self.centery - sliceheight / 2)
+                else:#horizontal collision
+                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,int(collisionlocation[x][0]) % gridsize)
+                    sliceheight = min(sliceheight,self.gridsize)
+                    blitlocation = (x, self.centery - sliceheight / 2)
+                self.display.blit(texturestrip,blitlocation)
+                """
+                heightoffset = sliceheight - height
+                if heightoffset > 0:
+                    heightoffset /= 2
+                else:
+                    heightoffset = 0
+                if collisiontype[x]:#vertical collision
+                    slicerect = [int(collisionlocation[x][1]) % 32, heightoffset,1, sliceheight-heightoffset]
+                    blitlocation = (offset + x, mid - sliceheight / 2)
+                else:#horizontal collision
+                    slicerect = [int(collisionlocation[x][0]) % 32, heightoffset,1, sliceheight-heightoffset]
+                    blitlocation = (offset + x, mid - sliceheight / 2)
+                screen.blit(texture,blitlocation,slicerect)
+                """
 
 
 
@@ -302,15 +312,6 @@ pygame.font.init()
 font = pygame.font.Font(None,16)
 """
 
-
-    
-
-
-
-    
-    
-    
-
 #todo: directional sound
     
 def moveplayer(the_map,playerpos,move, gridsize):
@@ -351,19 +352,21 @@ the_map = loadmap("the_map.txt")
 
 playerpos = [100,100]
 playerangle = 60
-gridsize = 32
+gridsize = 128
 movespeed = 4
 turnspeed = 3
 offset = 700
-
+floortexture = ceilingtexture = texturelist = [pygame.image.load('wall.bmp').convert()]
 
 import keymap
 print keymap.action
 
 
-
+raycaster = Raycaster(the_map, gridsize, screen, texturelist, floortexture,
+                 ceilingtexture, playerpos, playerangle)
 while 1:
     pygame.display.update()
+    raycaster.update()
 
     if keymap.actionstatus['rotateright']: playerangle -= turnspeed
     if keymap.actionstatus['rotateleft']: playerangle += turnspeed
@@ -383,12 +386,12 @@ while 1:
         move[0] -= int(math.cos(math.radians(playerangle+90)) * movespeed)
         move[1] += int(math.sin(math.radians(playerangle+90)) * movespeed)
         
-    playerpos = moveplayer(the_map, playerpos, move, gridsize)
-    screen.fill((0,0,0))
-    drawmap(screen,the_map,gridsize)
-    drawplayer(screen,playerpos)
-    texturetype, collisioninfo, scaling = castmap(the_map, playerpos,playerangle,gridsize,screen)
-    castdisplay(screen, offset, [loadimg('wall.bmp')], texturetype, collisioninfo, scaling)
+    #playerpos = moveplayer(the_map, playerpos, move, gridsize)
+    #screen.fill((0,0,0))
+    #drawmap(screen,the_map,gridsize)
+    #drawplayer(screen,playerpos)
+    #texturetype, collisioninfo, scaling = castmap(the_map, playerpos,playerangle,gridsize,screen)
+    #castdisplay(screen, offset, [loadimg('wall.bmp')], texturetype, collisioninfo, scaling)
     
     for event in pygame.event.get():
         if event.type == KEYDOWN:
