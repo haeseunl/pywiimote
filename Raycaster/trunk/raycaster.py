@@ -38,13 +38,22 @@ class Raycaster(object):
     def _getCachedTexture(self,textureoffset,height,slicex):
         """Never returns bigger than the gridsize"""
         #print "THIS IS THE TEXTURE OFFSET: " + str(textureoffset)
-        textureoffset = 0
-        texture = self.textures[textureoffset]
-        texture = pygame.transform.scale(texture,(height,height))
-        surf = pygame.Surface((1,height))
-        surf.blit(texture,(0,0),(slicex,0,1,height))
+        texture = self.textures[textureoffset-1]
+        if height < self.gridsize:
+            return self.texturecache[textureoffset-1][height-1].subsurface(slicex,0,1,height)
+        try:
+            texture = pygame.transform.scale(texture,(self.gridsize,height))
+        except:
+            print "TEXTURE CAN'T BE RESIZED TO: " + str(height)
+        if height > self.height:
+            surf = pygame.Surface((1,self.height))
+            diff = (height - self.height) / 2
+            surf.blit(texture,(0,0),(slicex,diff,1,self.height))
+        else:
+            surf = pygame.Surface((1,height))
+            surf.blit(texture,(0,0),(slicex,0,1,height))
         return surf
-        print "You just called getcachedtexture!"
+        #print "You just called getcachedtexture!"
         pass
     def __init__(self, themap, gridsize, displaysurf, texturelist, floortexture,
                  ceilingtexture, camerapos, cameradir, FOV=60, cameradistance=None):
@@ -57,20 +66,24 @@ class Raycaster(object):
         self.cameradir = cameradir
         
         self.display = displaysurf
-        self.centerx = self.display.get_width() / 2
-        self.width = self.display.get_width() / 2
         self.setDisplaySurface(self.display)
         self.FOV = FOV
-        self.FOVradians = math.radians(FOV)
+        #self.FOVradians = math.radians(FOV)
 
         self.FPS = 0
         if not cameradistance:
-            self.cameradistance = self.centerx / math.tan(self.FOVradians)
+            self.cameradistance = int(self.centerx / math.tan(math.radians(FOV / 2)))
         else:
             self.cameradistance = cameradistance
+
+        #setup various caches to speed shit up
         #self.tancache = [math.tan(math.radians(x)) for x in range(360)]
         #self.coscache = [math.cos(math.radians(x)) for x in range(360)]
         #self.sincache = [math.sin(math.radians(x)) for x in range(360)]
+        self.texturecache = []
+        for item in texturelist:
+            self.texturecache.append([pygame.transform.scale(item,(self.gridsize,height)) for height in range(1,self.gridsize)])
+       
 
     def setDisplaySurface(self, surface):
         """ setDisplaySurface (pygame.Surface new_surface) -> None """
@@ -108,16 +121,16 @@ class Raycaster(object):
             #if denom 
             if horizint and not vertint:
                 coltype.append(0)
-                distance = abs(playerpos[1]-horizint[1]) / abs(math.sin(rayrad)) * correction
+                distance = abs(self.camerapos[1]-horizint[1]) / abs(math.sin(rayrad)) * correction
                 closestpoint = horizint
 
             elif vertint and not horizint:#this shouldnt cause a division by zero...
                 coltype.append(1)
-                distance = abs(playerpos[0]-vertint[0]) / abs(math.cos(rayrad)) * correction
+                distance = abs(self.camerapos[0]-vertint[0]) / abs(math.cos(rayrad)) * correction
                 closestpoint = vertint
             elif vertint and horizint:
-                horizdist = abs(playerpos[0]-horizint[0]) / abs(math.cos(rayrad)) * correction
-                vertdist = abs(playerpos[0]-vertint[0]) / abs(math.cos(rayrad)) * correction
+                horizdist = abs(self.camerapos[0]-horizint[0]) / abs(math.cos(rayrad)) * correction
+                vertdist = abs(self.camerapos[0]-vertint[0]) / abs(math.cos(rayrad)) * correction
 
 
                 if abs(horizdist) < abs(vertdist):
@@ -230,26 +243,28 @@ class Raycaster(object):
 
     def update(self):
         #WILL crash if no collision location ( == None)
-        print "running update now"
+        #print "running update now"
         wallvalues,collisiontype,collisionlocation, scaling = self._castDisplay()
         self.display.fill((20,20,190),(0,0,self.width,self.centery))
         self.display.fill((190,20,20),(0,self.centery,self.width,self.centery))
-        
+        #print self.cameradistance
         #print scaling[0]
         for x in range(self.width):
             if scaling[x]:
-                sliceheight = (self.gridsize / 2) / scaling[x] * self.cameradistance
+                sliceheight = int(self.gridsize / scaling[x] * self.cameradistance)
                 #texture = pygame.transform.scale(textures[texturetype[x]-1],(sliceheight,sliceheight))
-                
+
                                                       
                 if collisiontype[x]:#vertical collision
-                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,int(collisionlocation[x][0]) % gridsize)
-                    sliceheight = min(sliceheight,self.gridsize)
-                    blitlocation = (x, self.centery - sliceheight / 2)
+                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,int(collisionlocation[x][1]) % gridsize)
+                    
                 else:#horizontal collision
                     texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,int(collisionlocation[x][0]) % gridsize)
-                    sliceheight = min(sliceheight,self.gridsize)
-                    blitlocation = (x, self.centery - sliceheight / 2)
+                    #sliceheight = min(sliceheight,self.gridsize)
+                
+                sliceheight = min(sliceheight,self.height)
+                blitlocation = (x, self.centery - sliceheight / 2)
+                #print blitlocation
                 self.display.blit(texturestrip,blitlocation)
                 """
                 heightoffset = sliceheight - height
@@ -314,21 +329,30 @@ font = pygame.font.Font(None,16)
 
 #todo: directional sound
     
-def moveplayer(the_map,playerpos,move, gridsize):
+def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
     #checks that they don't move through a wall.  would be simple to implement a ray that is used to calculate
     #distance to closest wall on player's movement path and determine if they are walking through it;
     #currently this function merely checks for the dest square to see if it is occupied.
     #should be perfectly fine unless you plan on letting them move faster than gridsize.
-    destx = playerpos[0] + move[0]
-    if destx >= 0 and int(destx/gridsize) < len(the_map[0]):
-        if the_map[int(playerpos[1]/gridsize)][int(destx/gridsize)]:
+    #DO THE ABOVE NOW, RETARD.
+    destx = playerpos[0] + movex
+    if movex < 0:
+        playersize = -playersize
+        
+    if int(destx+playersize/gridsize) < len(the_map[0]):
+        if the_map[int(playerpos[1]/gridsize)][int((destx+playersize)/gridsize)]:
             destx = playerpos[0]
     else:
         destx = playerpos[0]
-
-    desty = playerpos[1] + move[1]
-    if desty >= 0 and int(desty/gridsize) < len(the_map):
-        if the_map[int(desty/gridsize)][int(playerpos[0]/gridsize)]:
+        
+    
+    desty = playerpos[1] + movey
+    playersize = abs(playersize)
+    if movey < 0:
+        playersize = -playersize
+        
+    if int(desty+playersize/gridsize) < len(the_map):
+        if the_map[int((desty+playersize)/gridsize)][int(playerpos[0]/gridsize)]:
             desty = playerpos[1]
     else:#keeps people from moving off map, probably
         desty = playerpos[1]
@@ -344,7 +368,7 @@ def moveplayer(the_map,playerpos,move, gridsize):
 
 
 
-screen = pygame.display.set_mode((1024,768))
+screen = pygame.display.set_mode((320,240))
 
 the_map = loadmap("the_map.txt")
 
@@ -352,10 +376,9 @@ the_map = loadmap("the_map.txt")
 
 playerpos = [100,100]
 playerangle = 60
-gridsize = 128
+gridsize = 32
 movespeed = 4
 turnspeed = 3
-offset = 700
 floortexture = ceilingtexture = texturelist = [pygame.image.load('wall.bmp').convert()]
 
 import keymap
@@ -367,26 +390,27 @@ raycaster = Raycaster(the_map, gridsize, screen, texturelist, floortexture,
 while 1:
     pygame.display.update()
     raycaster.update()
+    raycaster.camerapos = playerpos
+    raycaster.cameradir = playerangle
 
     if keymap.actionstatus['rotateright']: playerangle -= turnspeed
     if keymap.actionstatus['rotateleft']: playerangle += turnspeed
-    move = [0,0]
+    movex,movey = 0,0
     if keymap.actionstatus['moveforward']:
-        move[0] += int(math.cos(math.radians(playerangle)) * movespeed)
-        move[1] -= int(math.sin(math.radians(playerangle)) * movespeed)
+        movex += int(math.cos(math.radians(playerangle)) * movespeed)
+        movey -= int(math.sin(math.radians(playerangle)) * movespeed)
     if keymap.actionstatus['movebackward']:
-        move[0] -= int(math.cos(math.radians(playerangle)) * movespeed)
-        move[1] += int(math.sin(math.radians(playerangle)) * movespeed)
+        movex -= int(math.cos(math.radians(playerangle)) * movespeed)
+        movey += int(math.sin(math.radians(playerangle)) * movespeed)
         
     if keymap.actionstatus['strafeleft']:
-        move[0] -= int(math.cos(math.radians(playerangle-90)) * movespeed)
-        move[1] += int(math.sin(math.radians(playerangle-90)) * movespeed)
+        movex -= int(math.cos(math.radians(playerangle-90)) * movespeed)
+        movey += int(math.sin(math.radians(playerangle-90)) * movespeed)
     
     if keymap.actionstatus['straferight']:
-        move[0] -= int(math.cos(math.radians(playerangle+90)) * movespeed)
-        move[1] += int(math.sin(math.radians(playerangle+90)) * movespeed)
-        
-    #playerpos = moveplayer(the_map, playerpos, move, gridsize)
+        movex -= int(math.cos(math.radians(playerangle+90)) * movespeed)
+        movey += int(math.sin(math.radians(playerangle+90)) * movespeed)
+    playerpos = moveplayer(the_map, playerpos, movex,movey, 0,gridsize)
     #screen.fill((0,0,0))
     #drawmap(screen,the_map,gridsize)
     #drawplayer(screen,playerpos)
