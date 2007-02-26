@@ -11,9 +11,8 @@ what happens if wall is so far away the height becomes 0?
 
 #bugs
 """
-walking past corners closely looks weird
-might just have to do with movement speed, not sure yet.
-will be easier to tell once texturing.
+Gridsize of 16 or 128 doesn't work when texture is 128x128, unsure if texture is 32x32, suspect it doesn't work either.
+
 """
 
 #ideas
