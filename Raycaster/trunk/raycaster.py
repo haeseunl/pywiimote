@@ -369,7 +369,7 @@ def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
 
 
 screen = pygame.display.set_mode((320,240))
-
+screen = screen.subsurface((0,0,320,200))
 the_map = loadmap("the_map.txt")
 
 
