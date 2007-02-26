@@ -1,0 +1,12 @@
+TARGETNAME=wiimote-lib
+TARGETPATH=..\..\bin\ddk_build
+TARGETTYPE=LIBRARY
+
+
+INCLUDES=.
+
+SOURCES=..\wiimote-api.c
+
+UMTYPE=windows
+
+	
