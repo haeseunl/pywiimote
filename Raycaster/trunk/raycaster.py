@@ -32,25 +32,53 @@ how big each map is, ad what direction the player is looking in.
 """
 import math
 class Raycaster(object):
-    x = 5
     """ pass surf as a subsurface of the display, otherwise the raycasting will cover the whole screen. """
-    def _getCachedTexture(self,textureoffset,height,slicex):
+    def _getCachedTexture(self,textureoffset,height,collision,isvertical):
         """Never returns bigger than the gridsize"""
         #print "THIS IS THE TEXTURE OFFSET: " + str(textureoffset)
         texture = self.textures[textureoffset-1]
-        if height < self.gridsize:
-            return self.texturecache[textureoffset-1][height-1].subsurface(slicex,0,1,height)
-        try:
-            texture = pygame.transform.scale(texture,(self.gridsize,height))
-        except:
-            print "TEXTURE CAN'T BE RESIZED TO: " + str(height)
-        if height > self.height:
-            surf = pygame.Surface((1,self.height))
-            diff = (height - self.height) / 2
-            surf.blit(texture,(0,0),(slicex,diff,1,self.height))
+
+        
+        if isvertical:
+            slicex = int(collision[1] % texture.get_width())
         else:
-            surf = pygame.Surface((1,height))
-            surf.blit(texture,(0,0),(slicex,0,1,height))
+            slicex = int(collision[0] % texture.get_width())
+        
+        #print slicex
+        surf = pygame.Surface((1,height))
+        surf.fill((150,150,150),(0,0,1,height))
+        texture.lock()
+        surf.lock()
+        texheight = texture.get_height()
+        pix = 0
+        yoffset = 0
+        drawstart = -height / 2 + self.height / 2
+        if drawstart < 0: drawstart = 0
+        drawend = height / 2 + self.height / 2
+        if drawend < 0: drawend = 0
+        for y in range(drawstart,drawend):#or self.height/2 - height/2, not sure.
+            d = int(yoffset * 256 - self.height / 128 + height / 128)
+            slicey = int(((d * texheight) / height) / 256)
+            try:
+                pix = texture.get_at((slicex,slicey))
+                #print pix
+            except:
+                #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
+                pass
+            surf.set_at((0,yoffset),pix)
+                    
+            yoffset += 1
+        
+        surf.unlock()
+        texture.unlock()
+        if self.darkenvertical:
+            if isvertical:
+                black = pygame.Surface((1,height))
+                black.set_alpha(128)
+                surf.blit(black,(0,0))
+
+            #pass
+        #return texture.subsurface((0,0,25,25))
         return surf
         #print "You just called getcachedtexture!"
         pass
@@ -79,9 +107,11 @@ class Raycaster(object):
         #self.tancache = [math.tan(math.radians(x)) for x in range(360)]
         #self.coscache = [math.cos(math.radians(x)) for x in range(360)]
         #self.sincache = [math.sin(math.radians(x)) for x in range(360)]
-        self.texturecache = []
-        for item in texturelist:
-            self.texturecache.append([pygame.transform.scale(item,(self.gridsize,height)) for height in range(1,self.gridsize)])
+
+        self.darkenvertical = True;
+        #self.texturecache = []
+        #for item in texturelist:
+        #    self.texturecache.append([pygame.transform.scale(item,(self.gridsize,height)) for height in range(1,self.gridsize)])
        
 
     def setDisplaySurface(self, surface):
@@ -255,10 +285,10 @@ class Raycaster(object):
 
                                                       
                 if collisiontype[x]:#vertical collision
-                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,int(collisionlocation[x][1]) % gridsize)
+                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,collisionlocation[x], True)
                     
                 else:#horizontal collision
-                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,int(collisionlocation[x][0]) % gridsize)
+                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,collisionlocation[x], False)
                     #sliceheight = min(sliceheight,self.gridsize)
                 
                 sliceheight = min(sliceheight,self.height)
@@ -375,10 +405,10 @@ the_map = loadmap("the_map.txt")
 
 playerpos = [100,100]
 playerangle = 60
-gridsize = 32
+gridsize = 64
 movespeed = 4
 turnspeed = 3
-floortexture = ceilingtexture = texturelist = [pygame.image.load('wall.bmp').convert()]
+floortexture = ceilingtexture = texturelist = [pygame.image.load('wall2.bmp').convert()]
 
 import keymap
 print keymap.action
