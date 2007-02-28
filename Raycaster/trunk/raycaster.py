@@ -52,6 +52,12 @@ class Raycaster(object):
             slicex = int(collisions[xoffset][0] % texture.get_width())
         
         #print slicex
+<<<<<<< .mine
+        offset = 0.0
+        if 1:#height < self.height:
+            sliceheight = height
+            if height < 1: sliceheight = 1
+=======
         self.display.lock()
         offset = 0.0
         if height < self.height:
@@ -85,8 +91,55 @@ class Raycaster(object):
         
         self.display.unlock()
     
+>>>>>>> .r27
+
+<<<<<<< .mine
+            texheight = texture.get_height()
+            offset = texheight / float(sliceheight)
+            y = 0.0
+            if height < self.height:
+                y = 0.0
+                yend = texheight
+                yoffset = (self.height - sliceheight) / 2
+            else:
+                texconversion = float(texheight) / sliceheight
+                y = float(sliceheight - self.height)# / 2
+                
+                yend = self.height - y
+                yoffset = 0
+                offset = texconversion
+                y *= texconversion
+                
+                yend *= texconversion
+            while y < yend:
+                slicey = int(y)
+                try:
+                    pix = texture.get_at((slicex,slicey))
+                    """
+                    if self.darkenvertical:
+                        if isvertical:
+                            black = pygame.Surface((1,height))
+                            black.set_alpha(128)
+                            surf.blit(black,(0,0))
+                    """
+                    #print pix
+                except:
+                    pix = (255,255,255)
+                    #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
+                    pass
+                self.display.set_at((xoffset,yoffset),pix)
+                yoffset += 1
+                #print "Y: %s, Yoffset: %s, Yend: %s"
+                #print offset
+                y += offset
+        else:
+            #multiplier = self.height / float(height)
+            pass
 
 
+=======
+
+>>>>>>> .r27
             #pass
         #return texture.subsurface((0,0,25,25))
         #return surf
@@ -288,6 +341,8 @@ class Raycaster(object):
         self.display.fill((190,20,20),(0,self.centery,self.width,self.centery))
         #print self.cameradistance
         #print scaling[0]
+        
+        self.display.lock() 
         for x in range(self.width):
             if scaling[x]:
                 sliceheight = int(self.gridsize / scaling[x] * self.cameradistance)
@@ -319,7 +374,7 @@ class Raycaster(object):
                     blitlocation = (offset + x, mid - sliceheight / 2)
                 screen.blit(texture,blitlocation,slicerect)
                 """
-
+        self.display.unlock()
 
 
 class RaycasterMap(object):
