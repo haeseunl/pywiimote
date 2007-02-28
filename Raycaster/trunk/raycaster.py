@@ -7,6 +7,9 @@ pygame.display.init()
 """
 set a maximum view distance so big areas won't lag?
 what happens if wall is so far away the height becomes 0?
+
+
+let them set horis resolution, so they can have a 640x480 surf that has 320 rays, for example.
 """
 
 #bugs
@@ -63,6 +66,7 @@ class Raycaster(object):
                 pix = texture.get_at((slicex,slicey))
                 #print pix
             except:
+                pix = (255,255,255)
                 #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
                 pass
             surf.set_at((0,yoffset),pix)
@@ -83,7 +87,7 @@ class Raycaster(object):
         #print "You just called getcachedtexture!"
         pass
     def __init__(self, themap, gridsize, displaysurf, texturelist, floortexture,
-                 ceilingtexture, camerapos, cameradir, FOV=60, cameradistance=None):
+                 ceilingtexture, camerapos, cameradir, FOV=60,cameradistance=None):
         self.map = themap
         self.gridsize = gridsize
         self.textures = texturelist
@@ -397,14 +401,14 @@ def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
 
 
 
-screen = pygame.display.set_mode((320,240))
+screen = pygame.display.set_mode((320,240),FULLSCREEN)
 screen = screen.subsurface((0,0,320,200))
 the_map = loadmap("the_map.txt")
 
 
 
 playerpos = [100,100]
-playerangle = 60
+playerangle = 250
 gridsize = 64
 movespeed = 4
 turnspeed = 3
