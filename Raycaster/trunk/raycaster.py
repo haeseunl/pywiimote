@@ -16,7 +16,7 @@ let them set horis resolution, so they can have a 640x480 surf that has 320 rays
 """
 Gridsize of 16 or 128 doesn't work when texture is 128x128, unsure if texture is 32x32, suspect it doesn't work either.
 
-"""
+"""eueue
 
 #ideas
 """
@@ -36,7 +36,7 @@ how big each map is, ad what direction the player is looking in.
 import math
 class Raycaster(object):
     """ pass surf as a subsurface of the display, otherwise the raycasting will cover the whole screen. """
-    def _drawStripe(self,wallvalues,collisions,xoffset,height,isvertical):
+ def _drawStripe(self,wallvalues,collisions,xoffset,height,isvertical):
         """Never returns bigger than the gridsize"""
         #print "THIS IS THE TEXTURE OFFSET: " + str(textureoffset)
         #print "Xoffset is:" + str(xoffset)
@@ -52,12 +52,6 @@ class Raycaster(object):
             slicex = int(collisions[xoffset][0] % texture.get_width())
         
         #print slicex
-<<<<<<< .mine
-        offset = 0.0
-        if 1:#height < self.height:
-            sliceheight = height
-            if height < 1: sliceheight = 1
-=======
         self.display.lock()
         offset = 0.0
         if height < self.height:
@@ -91,55 +85,8 @@ class Raycaster(object):
         
         self.display.unlock()
     
->>>>>>> .r27
-
-<<<<<<< .mine
-            texheight = texture.get_height()
-            offset = texheight / float(sliceheight)
-            y = 0.0
-            if height < self.height:
-                y = 0.0
-                yend = texheight
-                yoffset = (self.height - sliceheight) / 2
-            else:
-                texconversion = float(texheight) / sliceheight
-                y = float(sliceheight - self.height)# / 2
-                
-                yend = self.height - y
-                yoffset = 0
-                offset = texconversion
-                y *= texconversion
-                
-                yend *= texconversion
-            while y < yend:
-                slicey = int(y)
-                try:
-                    pix = texture.get_at((slicex,slicey))
-                    """
-                    if self.darkenvertical:
-                        if isvertical:
-                            black = pygame.Surface((1,height))
-                            black.set_alpha(128)
-                            surf.blit(black,(0,0))
-                    """
-                    #print pix
-                except:
-                    pix = (255,255,255)
-                    #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
-                    pass
-                self.display.set_at((xoffset,yoffset),pix)
-                yoffset += 1
-                #print "Y: %s, Yoffset: %s, Yend: %s"
-                #print offset
-                y += offset
-        else:
-            #multiplier = self.height / float(height)
-            pass
 
 
-=======
-
->>>>>>> .r27
             #pass
         #return texture.subsurface((0,0,25,25))
         #return surf
