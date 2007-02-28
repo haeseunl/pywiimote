@@ -61,7 +61,7 @@ class Raycaster(object):
             offset = texheight / float(sliceheight)
             yoffset = (self.height - sliceheight) / 2
             y = 0.0
-            while y < texheight:
+            while y <= texheight:
                 slicey = int(y)
                 try:
                     pix = texture.get_at((slicex,slicey))
@@ -81,6 +81,7 @@ class Raycaster(object):
                 yoffset += 1
                 #print offset
                 y += offset
+                
         else:
 
             texheight = texture.get_height()
