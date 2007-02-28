@@ -36,54 +36,60 @@ how big each map is, ad what direction the player is looking in.
 import math
 class Raycaster(object):
     """ pass surf as a subsurface of the display, otherwise the raycasting will cover the whole screen. """
-    def _getCachedTexture(self,textureoffset,height,collision,isvertical):
+    def _drawStripe(self,wallvalues,collisions,xoffset,height,isvertical):
         """Never returns bigger than the gridsize"""
         #print "THIS IS THE TEXTURE OFFSET: " + str(textureoffset)
-        texture = self.textures[textureoffset-1]
+        #print "Xoffset is:" + str(xoffset)
+        #print "Wallvalues[%s] = %s" % (xoffset,wallvalues[xoffset])
+        #print "LEN OF WALLVALUES:" + str(len(wallvalues))
+        texture = self.textures[wallvalues[xoffset]-1]
+
 
         
         if isvertical:
-            slicex = int(collision[1] % texture.get_width())
+            slicex = int(collisions[xoffset][1] % texture.get_width())
         else:
-            slicex = int(collision[0] % texture.get_width())
+            slicex = int(collisions[xoffset][0] % texture.get_width())
         
         #print slicex
-        surf = pygame.Surface((1,height))
-        surf.fill((150,150,150),(0,0,1,height))
-        texture.lock()
-        surf.lock()
-        texheight = texture.get_height()
-        pix = 0
-        yoffset = 0
-        drawstart = -height / 2 + self.height / 2
-        if drawstart < 0: drawstart = 0
-        drawend = height / 2 + self.height / 2
-        if drawend < 0: drawend = 0
-        for y in range(drawstart,drawend):#or self.height/2 - height/2, not sure.
-            d = int(yoffset * 256 - self.height / 128 + height / 128)
-            slicey = int(((d * texheight) / height) / 256)
-            try:
-                pix = texture.get_at((slicex,slicey))
-                #print pix
-            except:
-                pix = (255,255,255)
-                #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
-                pass
-            surf.set_at((0,yoffset),pix)
-                    
-            yoffset += 1
+        self.display.lock()
+        offset = 0.0
+        if height < self.height:
+            sliceheight = height
+            if height < 1: sliceheight = 1
+
+            texheight = texture.get_height()
+            offset = texheight / float(sliceheight)
+            yoffset = (self.height - height) / 2
+            y = 0.0
+            while y < texheight:
+                slicey = int(y)
+                try:
+                    pix = texture.get_at((slicex,slicey))
+                    """
+                    if self.darkenvertical:
+                        if isvertical:
+                            black = pygame.Surface((1,height))
+                            black.set_alpha(128)
+                            surf.blit(black,(0,0))
+                    """
+                    #print pix
+                except:
+                    pix = (255,255,255)
+                    #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
+                    pass
+                self.display.set_at((xoffset,yoffset),pix)
+                yoffset += 1
+                #print offset
+                y += offset
         
-        surf.unlock()
-        texture.unlock()
-        if self.darkenvertical:
-            if isvertical:
-                black = pygame.Surface((1,height))
-                black.set_alpha(128)
-                surf.blit(black,(0,0))
+        self.display.unlock()
+    
+
 
             #pass
         #return texture.subsurface((0,0,25,25))
-        return surf
+        #return surf
         #print "You just called getcachedtexture!"
         pass
     def __init__(self, themap, gridsize, displaysurf, texturelist, floortexture,
@@ -289,16 +295,16 @@ class Raycaster(object):
 
                                                       
                 if collisiontype[x]:#vertical collision
-                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,collisionlocation[x], True)
+                    texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, True)
                     
                 else:#horizontal collision
-                    texturestrip = self._getCachedTexture(wallvalues[x],sliceheight,collisionlocation[x], False)
+                    texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, False)
                     #sliceheight = min(sliceheight,self.gridsize)
                 
-                sliceheight = min(sliceheight,self.height)
-                blitlocation = (x, self.centery - sliceheight / 2)
+                #sliceheight = min(sliceheight,self.height)
+                #blitlocation = (x, self.centery - sliceheight / 2)
                 #print blitlocation
-                self.display.blit(texturestrip,blitlocation)
+                #self.display.blit(texturestrip,blitlocation)
                 """
                 heightoffset = sliceheight - height
                 if heightoffset > 0:
@@ -401,7 +407,7 @@ def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
 
 
 
-screen = pygame.display.set_mode((320,240),FULLSCREEN)
+screen = pygame.display.set_mode((320,240))
 screen = screen.subsurface((0,0,320,200))
 the_map = loadmap("the_map.txt")
 
