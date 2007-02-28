@@ -1,5 +1,5 @@
 import math
-import pygame
+import pygame, os
 from pygame.locals import *
 pygame.display.init()
 
@@ -16,7 +16,7 @@ let them set horis resolution, so they can have a 640x480 surf that has 320 rays
 """
 Gridsize of 16 or 128 doesn't work when texture is 128x128, unsure if texture is 32x32, suspect it doesn't work either.
 
-"""eueue
+"""
 
 #ideas
 """
@@ -36,7 +36,7 @@ how big each map is, ad what direction the player is looking in.
 import math
 class Raycaster(object):
     """ pass surf as a subsurface of the display, otherwise the raycasting will cover the whole screen. """
- def _drawStripe(self,wallvalues,collisions,xoffset,height,isvertical):
+    def _drawStripe(self,wallvalues,collisions,xoffset,height,isvertical):
         """Never returns bigger than the gridsize"""
         #print "THIS IS THE TEXTURE OFFSET: " + str(textureoffset)
         #print "Xoffset is:" + str(xoffset)
@@ -52,7 +52,6 @@ class Raycaster(object):
             slicex = int(collisions[xoffset][0] % texture.get_width())
         
         #print slicex
-        self.display.lock()
         offset = 0.0
         if height < self.height:
             sliceheight = height
@@ -60,7 +59,7 @@ class Raycaster(object):
 
             texheight = texture.get_height()
             offset = texheight / float(sliceheight)
-            yoffset = (self.height - height) / 2
+            yoffset = (self.height - sliceheight) / 2
             y = 0.0
             while y < texheight:
                 slicey = int(y)
@@ -82,8 +81,36 @@ class Raycaster(object):
                 yoffset += 1
                 #print offset
                 y += offset
-        
-        self.display.unlock()
+        else:
+
+            texheight = texture.get_height()
+            modifier = texheight / float(height)
+            y = (height - self.height) / 2 *  modifier
+            offset = modifier
+            yoffset = 0
+            while yoffset < self.height:
+                slicey = int(y)
+                try:
+                    pix = texture.get_at((slicex,slicey))
+                    """
+                    if self.darkenvertical:
+                        if isvertical:
+                            black = pygame.Surface((1,height))
+                            black.set_alpha(128)
+                            surf.blit(black,(0,0))
+                    """
+                    #print pix
+                except:
+                    pix = (255,255,255)
+                    #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
+                    pass
+                self.display.set_at((xoffset,yoffset),pix)
+                yoffset += 1
+                #print offset
+                y += offset
+
+
+                
     
 
 
@@ -294,7 +321,7 @@ class Raycaster(object):
             if scaling[x]:
                 sliceheight = int(self.gridsize / scaling[x] * self.cameradistance)
                 #texture = pygame.transform.scale(textures[texturetype[x]-1],(sliceheight,sliceheight))
-
+                self.display.lock()
                                                       
                 if collisiontype[x]:#vertical collision
                     texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, True)
@@ -302,7 +329,7 @@ class Raycaster(object):
                 else:#horizontal collision
                     texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, False)
                     #sliceheight = min(sliceheight,self.gridsize)
-                
+                self.display.unlock()
                 #sliceheight = min(sliceheight,self.height)
                 #blitlocation = (x, self.centery - sliceheight / 2)
                 #print blitlocation
@@ -409,7 +436,7 @@ def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
 
 
 
-screen = pygame.display.set_mode((320,240))
+screen = pygame.display.set_mode((320,240),FULLSCREEN)
 screen = screen.subsurface((0,0,320,200))
 the_map = loadmap("the_map.txt")
 
@@ -419,8 +446,10 @@ playerpos = [100,100]
 playerangle = 250
 gridsize = 64
 movespeed = 4
-turnspeed = 3
-floortexture = ceilingtexture = texturelist = [pygame.image.load('wall2.bmp').convert()]
+turnspeed = 6
+texturelist = ["redbrick","eagle","purplestone","mossy","greystone"]
+floortexturelist = ["bluestone","colorstone","wood"]
+floortexture = ceilingtexture = texturelist = [pygame.image.load('textures/'+s+'.bmp').convert() for s in texturelist]
 
 import keymap
 print keymap.action
