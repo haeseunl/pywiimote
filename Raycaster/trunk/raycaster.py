@@ -67,13 +67,9 @@ class Raycaster(object):
                 slicey = ((d * texheight) / height) / 256
                 try:
                     pix = texture.get_at((slicex,slicey))
-                    """
                     if self.darkenvertical:
                         if isvertical:
-                            black = pygame.Surface((1,height))
-                            black.set_alpha(128)
-                            surf.blit(black,(0,0))
-                    """
+                            pix = (max(0,pix[0]-32),max(0,pix[1]-32),max(0,pix[2]-32))
                     #print pix
                 except:
                     pix = (255,255,255)
@@ -406,23 +402,20 @@ def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
     #should be perfectly fine unless you plan on letting them move faster than gridsize.
     #DO THE ABOVE NOW, RETARD.
     destx = playerpos[0] + movex
-    if movex < 0:
-        playersize = -playersize
+    #if movex < 0:
+    #    playersize = -playersize
         
-    if int(destx+playersize/gridsize) < len(the_map[0]):
-        if the_map[int(playerpos[1]/gridsize)][int((destx+playersize)/gridsize)]:
+    if int(destx/gridsize) < len(the_map[0]):
+        if the_map[int(playerpos[1]/gridsize)][int((destx)/gridsize)]:
             destx = playerpos[0]
     else:
         destx = playerpos[0]
         
     
     desty = playerpos[1] + movey
-    playersize = abs(playersize)
-    if movey < 0:
-        playersize = -playersize
         
-    if int(desty+playersize/gridsize) < len(the_map):
-        if the_map[int((desty+playersize)/gridsize)][int(playerpos[0]/gridsize)]:
+    if int(desty/gridsize) < len(the_map):
+        if the_map[int((desty)/gridsize)][int(playerpos[0]/gridsize)]:
             desty = playerpos[1]
     else:#keeps people from moving off map, probably
         desty = playerpos[1]
@@ -439,15 +432,15 @@ def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
 
 
 screen = pygame.display.set_mode((320,240),FULLSCREEN)
-screen = screen.subsurface((0,0,320,200))
+screen = screen.subsurface((0,20,320,200))
 the_map = loadmap("the_map.txt")
 
 
 
-playerpos = [100,100]
+playerpos = [300,300]
 playerangle = 250
 gridsize = 64
-movespeed = 4
+movespeed = 15
 turnspeed = 6
 texturelist = ["redbrick","eagle","purplestone","mossy","greystone"]
 floortexturelist = ["bluestone","colorstone","wood"]
