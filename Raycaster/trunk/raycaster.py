@@ -52,17 +52,19 @@ class Raycaster(object):
             slicex = int(collisions[xoffset][0] % texture.get_width())
         
         #print slicex
-        offset = 0.0
-        if height < self.height:
+        if 1:#height < surf.get_height():
             sliceheight = height
             if height < 1: sliceheight = 1
-
             texheight = texture.get_height()
-            offset = texheight / float(sliceheight)
-            yoffset = (self.height - sliceheight) / 2
-            y = 0.0
-            while y <= texheight:
-                slicey = int(y)
+            yoffset = (self.height - sliceheight) / 2 + 1
+            end = self.height - yoffset - 1
+            if end > self.height:
+                end = self.height
+            if height > self.height:
+                yoffset = 0
+            while yoffset <= end:
+                d = yoffset * 256 - self.height * 128 + height * 128
+                slicey = ((d * texheight) / height) / 256
                 try:
                     pix = texture.get_at((slicex,slicey))
                     """
@@ -80,7 +82,6 @@ class Raycaster(object):
                 self.display.set_at((xoffset,yoffset),pix)
                 yoffset += 1
                 #print offset
-                y += offset
                 
         else:
 
