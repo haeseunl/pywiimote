@@ -36,7 +36,7 @@ how big each map is, ad what direction the player is looking in.
 import math
 class Raycaster(object):
     """ pass surf as a subsurface of the display, otherwise the raycasting will cover the whole screen. """
-    def _drawStripe(self,wallvalues,collisions,xoffset,height,isvertical):
+    def _drawStripe(self,wallvalues,collisions,xoffset,height, distances, isvertical):
         """Never returns bigger than the gridsize"""
         #print "THIS IS THE TEXTURE OFFSET: " + str(textureoffset)
         #print "Xoffset is:" + str(xoffset)
@@ -44,6 +44,8 @@ class Raycaster(object):
         #print "LEN OF WALLVALUES:" + str(len(wallvalues))
         texture = self.textures[wallvalues[xoffset]-1]
 
+        texheight = texture.get_height()
+        texwidth = texture.get_width()
 
         
         if isvertical:
@@ -51,65 +53,54 @@ class Raycaster(object):
         else:
             slicex = int(collisions[xoffset][0] % texture.get_width())
         
-        #print slicex
-        if 1:#height < surf.get_height():
-            sliceheight = height
-            if height < 1: sliceheight = 1
-            texheight = texture.get_height()
-            yoffset = (self.height - sliceheight) / 2 + 1
-            end = self.height - yoffset - 1
-            if end > self.height:
-                end = self.height
-            if height > self.height:
-                yoffset = 0
-            while yoffset <= end:
-                d = yoffset * 256 - self.height * 128 + height * 128
-                slicey = ((d * texheight) / height) / 256
-                try:
-                    pix = texture.get_at((slicex,slicey))
-                    if self.darkenvertical:
-                        if isvertical:
-                            pix = (max(0,pix[0]-32),max(0,pix[1]-32),max(0,pix[2]-32))
-                    #print pix
-                except:
-                    pix = (255,255,255)
-                    #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
-                    pass
-                self.display.set_at((xoffset,yoffset),pix)
-                yoffset += 1
-                #print offset
-                
-        else:
-
-            texheight = texture.get_height()
-            modifier = texheight / float(height)
-            y = (height - self.height) / 2 *  modifier
-            offset = modifier
+        sliceheight = height
+        if height < 1: sliceheight = 1
+        yoffset = (self.height - sliceheight) / 2 + 1
+        end = self.height - yoffset - 1
+        if end > self.height:
+            end = self.height
+        if height > self.height:
             yoffset = 0
-            while yoffset < self.height:
-                slicey = int(y)
-                try:
-                    pix = texture.get_at((slicex,slicey))
-                    """
-                    if self.darkenvertical:
-                        if isvertical:
-                            black = pygame.Surface((1,height))
-                            black.set_alpha(128)
-                            surf.blit(black,(0,0))
-                    """
-                    #print pix
-                except:
-                    pix = (255,255,255)
-                    #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
-                    pass
-                self.display.set_at((xoffset,yoffset),pix)
-                yoffset += 1
-                #print offset
-                y += offset
+        while yoffset <= end:
+            d = yoffset * 256 - self.height * 128 + height * 128
+            slicey = ((d * texheight) / height) / 256
+            try:
+                pix = texture.get_at((slicex,slicey))
+                if self.darkenvertical:
+                    if isvertical:
+                        pass
+                        #pix = (max(0,pix[0]-32),max(0,pix[1]-32),max(0,pix[2]-32))
+                #print pix
+            except:
+                pix = (255,255,255)
+                #print "Slicex: %s, Slicey: %s" % (slicex,slicey)
+                pass
+            self.display.set_at((xoffset,yoffset),pix)
+            yoffset += 1
+            #print offset
 
 
-                
-    
+
+        #--- start floorcasting below
+        while yoffset < self.height:
+            if sliceheight <= 1:
+                return
+            currentDist = self.height / (2.0 * yoffset - height)
+            weight = currentDist / distances[xoffset]
+            #currentFloorPos = weight * floorPosWall + (1.0 - weight) * playerPos
+            currentFloorX = weight * collisions[xoffset][0] + (1.0 - weight) * 1
+            currentFloorY = weight * collisions[xoffset][1] + (1.0 - weight) * 1
+            #print "currentFloorX: %s, currentFloorY: %s" % (currentFloorX,currentFloorY)
+            floorTexX = int(currentFloorX * texwidth) % texwidth
+            floorTexY = int(currentFloorY * texheight) % texheight
+
+            try:
+                pix = self.floortexture.get_at((floorTexX,floorTexY))
+            except:
+                pix = (255,255,255)
+            self.display.set_at((xoffset,yoffset),pix)
+            yoffset += 1
+            
 
 
             #pass
@@ -322,10 +313,10 @@ class Raycaster(object):
                 self.display.lock()
                                                       
                 if collisiontype[x]:#vertical collision
-                    texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, True)
+                    texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, scaling, True)
                     
                 else:#horizontal collision
-                    texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, False)
+                    texturestrip = self._drawStripe(wallvalues,collisionlocation, x, sliceheight, scaling, False)
                     #sliceheight = min(sliceheight,self.gridsize)
                 self.display.unlock()
                 #sliceheight = min(sliceheight,self.height)
@@ -431,7 +422,7 @@ def moveplayer(the_map,playerpos,movex, movey, playersize, gridsize):
 
 
 
-screen = pygame.display.set_mode((320,240),FULLSCREEN)
+screen = pygame.display.set_mode((320,240))
 screen = screen.subsurface((0,20,320,200))
 the_map = loadmap("the_map.txt")
 
@@ -444,14 +435,14 @@ movespeed = 15
 turnspeed = 6
 texturelist = ["redbrick","eagle","purplestone","mossy","greystone"]
 floortexturelist = ["bluestone","colorstone","wood"]
-floortexture = ceilingtexture = texturelist = [pygame.image.load('textures/'+s+'.bmp').convert() for s in texturelist]
-
+texturelist = [pygame.image.load('textures/'+s+'.bmp').convert() for s in texturelist]
+floortexturelist = [pygame.image.load('textures/'+s+'.bmp').convert() for s in floortexturelist]
 import keymap
 print keymap.action
 
 
-raycaster = Raycaster(the_map, gridsize, screen, texturelist, floortexture,
-                 ceilingtexture, playerpos, playerangle)
+raycaster = Raycaster(the_map, gridsize, screen, texturelist, floortexturelist[0],
+                 floortexturelist[1], playerpos, playerangle)
 while 1:
     pygame.display.update()
     raycaster.update()
