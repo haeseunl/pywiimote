@@ -46,6 +46,7 @@ FILE_SHARE_WRITE = 0x00000002
 OPEN_EXISTING = 0x000000003
 FILE_FLAG_OVERLAPPED = 0x40000000
 ERROR_ACCESS_DENIED = 5
+ERROR_PATH_NOT_FOUND = 3
 
 class GUID(Structure):
     _fields_ = [('Data1',c_ulong), ('Data2',c_ushort),
@@ -150,7 +151,7 @@ class HIDDevice(object):
             if error == ERROR_ACCESS_DENIED:
                 print "ACCESS ON THIS DEVICE WAS DENIED."
             elif error == ERROR_PATH_NOT_FOUND:
-                print "THE DEVICE COULD NOT BE FOUND. This is most likely caused by trying to 
+                print "THE DEVICE COULD NOT BE FOUND. This is most likely caused by trying to "
             else:
                 print "UNKNOWN ERROR."
                 print "ERROR CODE: " + str(error)
