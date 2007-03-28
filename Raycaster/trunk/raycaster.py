@@ -80,6 +80,7 @@ class Raycaster(object):
             #print offset
 
 
+        """
 
         #--- start floorcasting below
         while yoffset < self.height:
@@ -101,7 +102,7 @@ class Raycaster(object):
             self.display.set_at((xoffset,yoffset),pix)
             yoffset += 1
             
-
+        """
 
             #pass
         #return texture.subsurface((0,0,25,25))
