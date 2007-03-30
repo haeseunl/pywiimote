@@ -151,7 +151,7 @@ class HIDDevice(object):
             if error == ERROR_ACCESS_DENIED:
                 print "ACCESS ON THIS DEVICE WAS DENIED."
             elif error == ERROR_PATH_NOT_FOUND:
-                print "THE DEVICE COULD NOT BE FOUND. This is most likely caused by trying to "
+                print "THE DEVICE COULD NOT BE FOUND. This is most likely caused by trying to index outside of the number of devices."
             else:
                 print "UNKNOWN ERROR."
                 print "ERROR CODE: " + str(error)
