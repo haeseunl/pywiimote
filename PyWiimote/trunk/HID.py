@@ -1,3 +1,9 @@
+#TODO: instead of opening a KERNEL write in the functions, allow the user to pass
+# an instance with a write() method.  THis way it'll be easy to debug (just pass in a screen-printing class'
+#write method) as well as making it easier to make portable.  also it potentially provides an alternative
+# (using HID report writing so that people with the XP stack will be okay)
+
+
 from ctypes import *
 
 kernel = windll.kernel32
@@ -149,12 +155,15 @@ class HIDDevice(object):
         if self.handle == -1:
             error = kernel.GetLastError() 
             if error == ERROR_ACCESS_DENIED:
-                print "ACCESS ON THIS DEVICE WAS DENIED."
+                #print "ACCESS ON THIS DEVICE WAS DENIED."
+                pass
             elif error == ERROR_PATH_NOT_FOUND:
-                print "THE DEVICE COULD NOT BE FOUND. This is most likely caused by trying to index outside of the number of devices."
+                #print "THE DEVICE COULD NOT BE FOUND. This is most likely caused by trying to index outside of the number of devices."
+                pass
             else:
-                print "UNKNOWN ERROR."
-                print "ERROR CODE: " + str(error)
+                #print "UNKNOWN ERROR."
+                #print "ERROR CODE: " + str(error)
+                pass
             
             print "-----------------------------"
             print
@@ -170,24 +179,30 @@ class HIDDevice(object):
 	self.overlapped.Offset = 0;
 	self.overlapped.OffsetHigh = 0;
 	self.overlapped.hEvent = self.event;
-	return 
 
 
-    def Connect(deviceid,vendorid,index):
+    def Connect(self,device_id, vendor_id, index):
         class HidAttributes(Structure):
             _fields_ = [('Size',c_ulong),('VendorID',c_ushort),('ProductID',c_ushort),('VersionNumber',c_ushort)]
 
         attrib = HidAttributes()
         attrib.Size = sizeof(attrib)
-        hid.HidD_GetAttributes(handle,byref(attrib))
+        hid.HidD_GetAttributes(self.handle,byref(attrib))# add a try here
         print "Device Info"
         print "------------"
         print "|VendorID: %s, Product ID: %s, Version: %s" % (attrib.VendorID, attrib.ProductID, attrib.VersionNumber)
         print "------------"
         print
-        kernel.CloseHandle(handle)
+        if device_id == attrib.ProductID and vendor_id == attrib.VendorID:
+            print "Found a Wii Remote."
+        else:
+            print "That wasn't a remote."
+        kernel.CloseHandle(self.handle)
 
-    
+
 someHIDEnumerator = HIDDevice()
+#Vendor ID, 0x057e. Product ID, 0x0306
 for x in range(10):
-    print someHIDEnumerator.OpenDevice(x)
+    if( someHIDEnumerator.OpenDevice(x) == None):#no errors
+        someHIDEnumerator.Connect(0x0306,0x057e,x)
+    
