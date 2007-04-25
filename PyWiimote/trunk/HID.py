@@ -9,6 +9,7 @@ class PathNotFoundError(Exception): pass
 class UnknownHandleError(Exception): pass
 
 from ctypes import *
+import sys
 
 kernel = windll.kernel32
 hid = windll.hid
@@ -95,132 +96,134 @@ class union(Union):
 class OVERLAPPED(Structure):
     _fields_ = [("Internal",POINTER(c_ulong)), ("Internal_High",POINTER(c_ulong)),("",union),("hEvent",c_void_p)]
 
+class HidAttributes(Structure):
+    _fields_ = [('Size',c_ulong),('VendorID',c_ushort),('ProductID',c_ushort),('VersionNumber',c_ushort)]
 
+def OpenDevice(index):
+    guid = GUID()
+    hid.HidD_GetHidGuid(byref(guid))
+    setupapi.SetupDiGetClassDevsA.restype = c_void_p
+    #classdevices = c_void_p(setupapi.SetupDiGetClassDevsA(byref(guid),None,None,(DIGCF_PRESENT|DIGCF_DEVICEINTERFACE)))
+    classdevices = setupapi.SetupDiGetClassDevsA(byref(guid),None,None,(DIGCF_PRESENT|DIGCF_DEVICEINTERFACE))
 
-class HIDDevice(object):
-    def __init__(self):
+    #setupapi.SetupDiGetClassDevsA(byref(guid),None,None,(DIGCF_PRESENT|DIGCF_DEVICEINTERFACE))
+
+    deviceinterfacedata = DeviceInterfaceData()
+
+    deviceinterfacedata.cbSize = sizeof(deviceinterfacedata)#16+4+4+4
+    deviceinterfacedata.InterfaceClassGuid = guid
+    deviceinterfacedata.Flags = 0
+    deviceinterfacedata.Reserved = None
+
+    device = setupapi.SetupDiEnumDeviceInterfaces(classdevices,None,byref(guid),index,byref(deviceinterfacedata))
+    buflen = c_ulong()
+    setupapi.SetupDiGetDeviceInterfaceDetailA(classdevices,byref(deviceinterfacedata),None,0,byref(buflen),0)
+
+    class DeviceInterfaceDetailData(Structure):
+        _fields_ = [('cbSize',c_ulong), ('DevicePath',c_char * (buflen.value+1))]
+    device = setupapi.SetupDiEnumDeviceInterfaces(classdevices,None,byref(guid),index,byref(deviceinterfacedata))
+    detail = DeviceInterfaceDetailData()
+    detail.cbSize = sizeof(c_ulong)+1 # Size of cbSize itself plus size of a null string.
+    setupapi.SetupDiGetDeviceInterfaceDetailA(classdevices,byref(deviceinterfacedata),byref(detail),buflen,None,None)
+
+    if setupapi.SetupDiDestroyDeviceInfoList(classdevices):
         pass
-    
-    def OpenDevice(self, index):
-        guid = GUID()
-        hid.HidD_GetHidGuid(byref(guid))
-        setupapi.SetupDiGetClassDevsA.restype = c_void_p
-        #classdevices = c_void_p(setupapi.SetupDiGetClassDevsA(byref(guid),None,None,(DIGCF_PRESENT|DIGCF_DEVICEINTERFACE)))
-        classdevices = setupapi.SetupDiGetClassDevsA(byref(guid),None,None,(DIGCF_PRESENT|DIGCF_DEVICEINTERFACE))
+        #return detail.DevicePath
+    else:
+        print "Unable to delete device list."
+        raise OSError
 
-        #setupapi.SetupDiGetClassDevsA(byref(guid),None,None,(DIGCF_PRESENT|DIGCF_DEVICEINTERFACE))
 
-        deviceinterfacedata = DeviceInterfaceData()
+    kernel.CreateFileA.restype = c_void_p
+    #devicepath = '\\\\.\\' + devicepath[4:]
 
-        deviceinterfacedata.cbSize = sizeof(deviceinterfacedata)#16+4+4+4
-        deviceinterfacedata.InterfaceClassGuid = guid
-        deviceinterfacedata.Flags = 0
-        deviceinterfacedata.Reserved = None
-
-        device = setupapi.SetupDiEnumDeviceInterfaces(classdevices,None,byref(guid),index,byref(deviceinterfacedata))
-        buflen = c_ulong()
-        setupapi.SetupDiGetDeviceInterfaceDetailA(classdevices,byref(deviceinterfacedata),None,0,byref(buflen),0)
-
-        class DeviceInterfaceDetailData(Structure):
-            _fields_ = [('cbSize',c_ulong), ('DevicePath',c_char * (buflen.value+1))]
-        device = setupapi.SetupDiEnumDeviceInterfaces(classdevices,None,byref(guid),index,byref(deviceinterfacedata))
-        detail = DeviceInterfaceDetailData()
-        detail.cbSize = sizeof(c_ulong)+1 # Size of cbSize itself plus size of a null string.
-        setupapi.SetupDiGetDeviceInterfaceDetailA(classdevices,byref(deviceinterfacedata),byref(detail),buflen,None,None)
-
-        if setupapi.SetupDiDestroyDeviceInfoList(classdevices):
-            pass
-            #return detail.DevicePath
+    #tmp = create_string_buffer(devicepath)#,len(devicepath)+1)
+    #tmp[-1] = '\0'
+    #print "The device's address is: " + devicepath
+    #devicepath = '\\\\.\\' + devicepath[4:]
+    handle = kernel.CreateFileA(detail.DevicePath,GENERIC_READ | GENERIC_WRITE,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE, None,
+                            OPEN_EXISTING, FILE_FLAG_OVERLAPPED, None)
+    #print kernel.GetLastError()
+    if handle == -1:
+        error = kernel.GetLastError() 
+        if error == ERROR_ACCESS_DENIED:
+            raise AccessDeniedError
+        elif error == ERROR_PATH_NOT_FOUND:
+            raise PathNotFoundError
         else:
-            print "Unable to delete device list."
-            raise OSError
-
-
-        kernel.CreateFileA.restype = c_void_p
-        #devicepath = '\\\\.\\' + devicepath[4:]
+            raise UnknownHandleError# we should give people some way of accessing the error code in this case.
+        
+        kernel.CloseHandle(handle)
+        #return error
+    #else:
+        #print "THE ADDRESS OF THE DEVICE'S INPUT STREAM IS: "+str(self.handle)
+    #pass
+    kernel.CreateEventA.restype = c_void_p
+    event = kernel.CreateEventA(None, True, True, "")
+    overlapped = OVERLAPPED()
+    overlapped.Offset = 0
+    overlapped.OffsetHigh = 0
+    overlapped.hEvent = event
     
-        #tmp = create_string_buffer(devicepath)#,len(devicepath)+1)
-        #tmp[-1] = '\0'
-        #print "The device's address is: " + devicepath
-        #devicepath = '\\\\.\\' + devicepath[4:]
-        handle = kernel.CreateFileA(detail.DevicePath,GENERIC_READ | GENERIC_WRITE,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE, None,
-                                OPEN_EXISTING, FILE_FLAG_OVERLAPPED, None)
-        #print kernel.GetLastError()
-        if handle == -1:
-            error = kernel.GetLastError() 
-            if error == ERROR_ACCESS_DENIED:
-                raise AccessDeniedError
-            elif error == ERROR_PATH_NOT_FOUND:
-                raise PathNotFoundError
-            else:
-                raise UnknownHandleError# we should give people some way of accessing the error code in this case.
-            
-            kernel.CloseHandle(handle)
-            #return error
-        #else:
-            #print "THE ADDRESS OF THE DEVICE'S INPUT STREAM IS: "+str(self.handle)
-        #pass
-        kernel.CreateEventA.restype = c_void_p
-        event = kernel.CreateEventA(None, True, True, "")
-        overlapped = OVERLAPPED()
-	overlapped.Offset = 0
-	overlapped.OffsetHigh = 0
-	overlapped.hEvent = event
-	
-        return (handle, overlapped)
+    return (handle, overlapped)
 
 
-    def Connect(self, handle):
-        class HidAttributes(Structure):
-            _fields_ = [('Size',c_ulong),('VendorID',c_ushort),('ProductID',c_ushort),('VersionNumber',c_ushort)]
-
-        attrib = HidAttributes()
-        attrib.Size = sizeof(attrib)
-        hid.HidD_GetAttributes(handle,byref(attrib))# add a try here
-        return attrib
-        #print "|VendorID: %s, Product ID: %s, Version: %s" % (attrib.VendorID, attrib.ProductID, attrib.VersionNumber)
+def Connect(handle):
+    attrib = HidAttributes()
+    attrib.Size = sizeof(attrib)
+    hid.HidD_GetAttributes(handle,byref(attrib))# add a try here
+    return attrib
+    #print "|VendorID: %s, Product ID: %s, Version: %s" % (attrib.VendorID, attrib.ProductID, attrib.VersionNumber)
 
 
-    def Disconnect(self, handle):
-        #if self.connected:
-        if kernel.CloseHandleA(handle):# and kernel.CloseHandleA(self.event):
-            #self.connected = False
-            return True
-        return False
+def Disconnect(handle):
+    #if self.connected:
+    if kernel.CloseHandleA(handle):# and kernel.CloseHandleA(self.event):
+        #self.connected = False
+        return True
+    return False
 
-    def Write(self, handle, data):
-        """ data should be a pointer to a ctypes byte array."""
-        temp = c_byte * len(data)
-        temp = temp()
-        #temp.value = data
-        #print temp
-        #print "The data is: "
-        #print data
-        #print "Here is each item individually"
-        for x,item in enumerate(temp):
-            #print data[x]
-            temp[x] = data[x]
-        #print type(temp)
+def Write(handle, overlapped, data):
+    """ data should be a pointer to a ctypes byte array."""
+    temp = c_ubyte * (22)#this makes this library less useful for other things, but whatever.
+    temp = temp()
+    #temp.value = data
+    #print temp
+    #print "The data is: "
+    #print data
+    #print "Here is each item individually"
+    print "DATA IS: ",data
+    for x in range( len(data)-1 ): #ignore the first value so we don't have to mess with the hid output report ( we don't care about it.)
+        #print data[x]
+        temp[x] = data[x+1]
+    #temp[x+1] = 0
+    #print type(temp)
+    #print temp
+    #temp.value = data
+    #result = hid.HidD_SetOutputReport(handle, byref(temp), c_int(len(data)-1))
+    bytes_written = c_int(-1)
+    #result = hid.HidD_SetOutputReport(handle,byref((c_byte * 3)(0x12,0x00,0x31)),c_int(3))
+    result = kernel.WriteFile(handle,byref(temp),c_int(22),byref(bytes_written),byref(overlapped))
+    print "%s bytes written. " % bytes_written
+    if result: print "Report was set successfully!"
+    else: print " Result wasn't set correctly."
 
-        hid.HidD_SetOutputReport(handle, temp, len(data))
-
-    def Read(self, handle, overlapped, timeout=1000,bufsize=0xff):
-        temp = c_byte * bufsize
-        temp = temp()
-        bytes_read = c_int(10)
-        #print type(overlapped)
-        kernel.ReadFile(handle, byref(temp),bufsize,byref(bytes_read),byref(overlapped))
-        result = kernel.WaitForSingleObject(overlapped.hEvent, timeout)
-        #print overlapped
-        print "Number of bytes read: "+ str(bytes_read.value)
-        print "Buffer: ", temp[0], temp[1], temp[2], temp[3], temp[4]
-        print "Result: ", result
-        if result == 0:#WAIT_OBJECT_0 which is STATUS_WAIT_0 (which is 0) + 0
-            kernel.ResetEvent(overlapped.hEvent)
-            return temp
-        print "Read Timed Out"
-        #something unexpected happened (implicit else)
-        kernel.CancelIo(handle)
-        kernel.ResetEvent(overlapped.hEvent)
+def Read(handle, overlapped, timeout=1000,bufsize=0x16):
+    temp = c_ubyte * bufsize
+    temp = temp()
+    bytes_read = c_int(10)
+    #print type(overlapped)
+    kernel.ReadFile(handle, byref(temp),bufsize,byref(bytes_read),byref(overlapped))
+    #print x
+    kernel.GetOverlappedResult(handle, byref(overlapped), byref(bytes_read), True)
+    #result = kernel.WaitForSingleObject(overlapped.hEvent, timeout)
+    #print overlapped
+    #if result == 0:#WAIT_OBJECT_0 which is STATUS_WAIT_0 (which is 0) + 0
+    #    kernel.ResetEvent(overlapped.hEvent)
+    return temp
+    #print "Read Timed Out"
+    #something unexpected happened (implicit else)
+    #kernel.CancelIo(handle)
+    #kernel.ResetEvent(overlapped.hEvent)
 

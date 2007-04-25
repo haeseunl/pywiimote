@@ -1,5 +1,5 @@
-from HID import HIDDevice, AccessDeniedError, PathNotFoundError
-
+import hid
+import sys
 VENDORID = 0x057e
 PRODUCTID = 0x0306
 
@@ -31,28 +31,27 @@ MODE_ACC = 0x31
 MODE_ACC_IR = 0x33
 MODE_FULL = 0x3e
 
-
-
-
-hid = HIDDevice()
-
 class Wiimote(object):
     """ currently only works on XP, but you can inherit and override the write method if you have some way of writing the reports on another platform."""
-    def __init__(self, handle, overlapped):
+    def __init__(self, oparg):
+        """oparg is an argument we pass to the hid operations.  We don't care
+        what the """
         self.handle = handle
         self.overlapped = overlapped
         self.leds = [0,0,0,0]
         self.rumble = False
         self.continuous = False
         self.accel = [0,0,0]
+        self.buttons = {'Two':False,'One':False,'B':False,'A':False,'-':False,'+':False,'Home':False,
+                        'Left':False,'Right':False,'Up':False,'Down':False}
         
     def __del__(self):
         hid.Disconnect(self.handle)
-    def ConnectWiimote(self):
-        hid.Write(self.handle, [0x12, 0x00, 0x30])
+    def connectWiimote(self):
+        self.write([0x52,0x12, 0x00, 0x30])
 
     def write(self, data):
-        hid.Write(self.handle, data)
+        hid.Write(self.handle, self.overlapped, data)
         
     def read(self):
         return hid.Read(self.handle, self.overlapped)
@@ -64,7 +63,7 @@ class Wiimote(object):
         #Send cmd, report, data to Wiimote. If cmd is CMD_SET_REPORT, this amounts to sending data to the specified report.
         #Interface code to Wiimote goes here.
 
-    def setmode(self,mode,cont):
+    def setMode(self,mode,cont):
         """ cont = whether you want input to be continuous or only on state changes."""
         aux = 0
         if self.rumble:
@@ -75,7 +74,7 @@ class Wiimote(object):
         self.send(CMD_SET_REPORT,RID_MODE,[aux,mode])
 
     # size here is redundant, since we can just use len(data) if we want.
-    def senddata(self,data,offset): # see writing to data: [[#On-board Memory].
+    def sendData(self,data,offset): # see writing to data: [[#On-board Memory].
         of1 = offset >> 24 & 0xFF #extract offset bytes
         of2 = offset >> 16 & 0xFF
         of3 = offset >> 8 & 0xFF
@@ -86,6 +85,74 @@ class Wiimote(object):
         # format is [OFFSET (BIGENDIAN),SIZE,DATA (16bytes)]
         self.send(CMD_SET_REPORT,RID_WMEM,[of1,of2,of3,of4,len(data)]+data2)        
 
+    def updateLEDs(self):
+        """also makes sure rumble is current, but updateRumble should be used
+        in general for rumble updates, because if changes are too fast, calling this
+        function too frequently will default out the remote, causing the LEDs to
+        flash. On the contrary, it's an easy way to flash the LEDs if you have need for that.
+        """
+        temp = 0x00
+        if self.rumble:
+            temp = 0x01
+        addvals = [0x10,0x20,0x40,0x80]
+        for x in range(4):
+            if self.leds[x] != 0:
+                temp |= addvals[x]
+        self.send(CMD_SET_REPORT, RID_LEDS, [temp])
+
+    def updateRumble(self):
+        if self.rumble:
+            self.send(CMD_SET_REPORT, RID_STATUS, [0x01]) #RID_MODE used b/c it's different from RID_LEDS
+        else:
+            self.send(CMD_SET_REPORT, RID_STATUS, [0x00])
+    
+    def updateStatus(self):
+    
+        readresult = self.read()
+        reporttype = readresult[0]
+        #button status is supposedly included in all reports in first 2 bits (not counting reporttype)
+        #so we'll trust that that's correct and use those values.
+
+        #the extract table is: (buttonName, offset, value)
+        extracttable = [('Two',2,0x01),('One',2,0x02),('B',2,0x04),('A',2,0x08),
+                        ('-',2,0x10),('Home',2,0x80),('Left',1,0x01),
+                        ('Right',1,0x02),('Down',1,0x04),('Up',1,0x08),
+                        ('+',1,0x10)]
+        for name,index,andval in extracttable:
+            temp = readresult[index] & andval
+            if temp != 0:
+                self.buttons[name] = 1
+            else:
+                self.buttons[name] = 0
+        if reporttype == 0x30:# buttons only
+            pass
+        #print "Number of bytes read: "+ str(len(readresult))
+        #print "Buffer: "
+        #for x in range(len(readresult)):
+        #        sys.stdout.write(readresult[x])
+        #sys.stdout.write('\n')
+        self.printStatus()
+        if self.buttons['A']:
+            if not self.rumble:
+                self.rumble = True
+                self.updateRumble()
+        else:
+            if self.rumble:
+                self.rumble = False
+                self.updateRumble()
+            
+    def printStatus(self):
+        line = ['A','B','-','+','Home']
+        for item in line:
+            sys.stdout.write(item + ": " + ['False','True'][self.buttons[item]]+", ")
+        line = ['Left','Right','Up','Down','One','Two']
+        sys.stdout.write('\n')
+        for item in line:
+            sys.stdout.write(item + ": " + ['False','True'][self.buttons[item]]+", ")
+        sys.stdout.write('\n')
+        print "LEDs: [%s,%s,%s,%s], Rumble: %s" % (self.leds[0],self.leds[1],
+                                                   self.leds[2],self.leds[3],
+                                                   self.rumble)
     
 #Vendor ID, 0x057e. Product ID, 0x0306
 wiimotes = []
@@ -112,8 +179,11 @@ while device:
 
 
 # this is Cliff's version pythonified, probably more accurate as far as sensitivity. Works pretty much the same for me.
-wiimotes[0].send(0x52,0x12,[0x00,0x30])
+#wiimotes[0].send(0x52,0x12,[0x00,0x30])
+
+"""
 wiimotes[0].setmode(MODE_ACC_IR,0)
+#wiimotes[0].send(CMD_SET_REPORT, RID_LEDS, [0x10])
 wiimotes[0].send(CMD_SET_REPORT,RID_IR_EN,[FEATURE_ENABLE])
 wiimotes[0].send(CMD_SET_REPORT,RID_IR_EN2,[FEATURE_ENABLE])
 wiimotes[0].senddata([1],0x04B00030) # seems to enable the IR peripheral
@@ -123,6 +193,8 @@ wiimotes[0].senddata([0x63, 0x03],0x04B0001A)
 # otherwise the data is probably garbled.
 wiimotes[0].senddata([IR_MODE_FULL],0x04B00033) 
 wiimotes[0].senddata([8],0x04B00030) # Enable data output. Can be specified first it seems, we don't really need to be in mode 1.
-wiimotes[0].send(CMD_SET_REPORT, RID_LEDS, [0x10])
-while 1:
-    print wiimotes[0].read()
+"""
+
+
+
+
