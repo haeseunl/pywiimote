@@ -1,0 +1,93 @@
+An empty city db has been created.
+choice i read.
+code 5000 read.
+x-coordinate 5067 read.
+y-coordinate 765 read.
+choice i read.
+code 1700 read.
+x-coordinate 1789 read.
+y-coordinate 7981 read.
+choice i read.
+code 1800 read.
+x-coordinate 1890 read.
+y-coordinate 8091 read.
+choice i read.
+code 2000 read.
+x-coordinate 2012 read.
+y-coordinate 212 read.
+choice i read.
+code 1900 read.
+x-coordinate 1901 read.
+y-coordinate 9101 read.
+choice i read.
+code 3000 read.
+x-coordinate 3012 read.
+y-coordinate 213 read.
+choice i read.
+code 8000 read.
+x-coordinate 8012 read.
+y-coordinate 218 read.
+choice i read.
+code 7500 read.
+x-coordinate 7567 read.
+y-coordinate 5767 read.
+choice i read.
+code 7600 read.
+x-coordinate 7678 read.
+y-coordinate 6877 read.
+choice i read.
+code 2500 read.
+x-coordinate 2567 read.
+y-coordinate 5762 read.
+choice i read.
+code 7800 read.
+x-coordinate 7890 read.
+y-coordinate 8097 read.
+choice i read.
+code 7700 read.
+x-coordinate 7789 read.
+y-coordinate 7987 read.
+choice i read.
+code 1500 read.
+x-coordinate 1567 read.
+y-coordinate 5761 read.
+choice i read.
+code 9000 read.
+x-coordinate 9012 read.
+y-coordinate 219 read.
+choice P read.
+
+1500 (1567, 5761)
+1700 (1789, 7981)
+1800 (1890, 8091)
+1900 (1901, 9101)
+2000 (2012, 212)
+2500 (2567, 5762)
+3000 (3012, 213)
+5000 (5067, 765)
+7500 (7567, 5767)
+7600 (7678, 6877)
+7700 (7789, 7987)
+7800 (7890, 8097)
+8000 (8012, 218)
+9000 (9012, 219)
+
+choice T read.
+
+        9000
+    8000
+                7800
+                    7700
+            7600
+        7500
+5000
+                3000
+                    2500
+            2000
+                1900
+        1800
+    1700
+        1500
+
+choice Q read.
+Bye...
