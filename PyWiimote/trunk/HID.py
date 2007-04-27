@@ -1,3 +1,6 @@
+#NOTE:::::: use separate events for file reading and writing, so that when you convert to a
+#polling system there will be no problem.
+
 #TODO: instead of opening a KERNEL write in the functions, allow the user to pass
 # an instance with a write() method.  THis way it'll be easy to debug (just pass in a screen-printing class'
 #write method) as well as making it easier to make portable.  also it potentially provides an alternative
@@ -194,7 +197,9 @@ def Write(handle, overlapped, data):
     #print data
     #print "Here is each item individually"
     print "DATA IS: ",data
-    for x in range( len(data)-1 ): #ignore the first value so we don't have to mess with the hid output report ( we don't care about it.)
+    length = 22
+    if len(data) < 23: length = len(data)
+    for x in range( length-1 ): #ignore the first value so we don't have to mess with the hid output report ( we don't care about it.)
         #print data[x]
         temp[x] = data[x+1]
     #temp[x+1] = 0
@@ -205,6 +210,11 @@ def Write(handle, overlapped, data):
     bytes_written = c_int(-1)
     #result = hid.HidD_SetOutputReport(handle,byref((c_byte * 3)(0x12,0x00,0x31)),c_int(3))
     result = kernel.WriteFile(handle,byref(temp),c_int(22),byref(bytes_written),byref(overlapped))
+
+    #
+    #Check here if overlapped is set to true (the write succeeded.)
+    #
+    
     print "%s bytes written. " % bytes_written
     if result: print "Report was set successfully!"
     else: print " Result wasn't set correctly."

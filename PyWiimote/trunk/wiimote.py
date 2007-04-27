@@ -1,3 +1,4 @@
+#shouldn't we make sure that the devices we tried to open actually opened?
 import hid
 import sys
 VENDORID = 0x057e
@@ -32,7 +33,7 @@ MODE_ACC_IR = 0x33
 MODE_FULL = 0x3e
 
 class Wiimote(object):
-    """ currently only works on XP, but you can inherit and override the write method if you have some way of writing the reports on another platform."""
+    """ currently only works on XP, but that's based on the hid library, not this library."""
     def __init__(self, oparg):
         """oparg is an argument we pass to the hid operations.  We don't care
         what the """
