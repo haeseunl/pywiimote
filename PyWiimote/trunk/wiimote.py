@@ -1,6 +1,7 @@
 #shouldn't we make sure that the devices we tried to open actually opened?
 import hid
 import sys
+from hid import AccessDeniedError, PathNotFoundError
 VENDORID = 0x057e
 PRODUCTID = 0x0306
 

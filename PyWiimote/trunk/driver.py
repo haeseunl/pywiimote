@@ -14,7 +14,7 @@ def rbin(value):
     
 
 import wiimote
-from HID import HIDDevice, AccessDeniedError, PathNotFoundError
+from hid import HIDDevice, AccessDeniedError, PathNotFoundError
 hid = HIDDevice()
 wiimotes = []
 x = 0
