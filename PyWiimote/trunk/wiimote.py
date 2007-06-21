@@ -6,6 +6,8 @@
 #disconnected.
 #and just tell users that they should write something to the device before
 #they start using it so they can know if it's connected or not.
+#
+#
 import hid
 import sys
 from hid import AccessDeniedError, PathNotFoundError
