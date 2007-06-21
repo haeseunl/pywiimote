@@ -65,42 +65,20 @@ ERROR_PATH_NOT_FOUND = 3
 class GUID(Structure):
     _fields_ = [('Data1',c_ulong), ('Data2',c_ushort),
     ('Data3',c_ushort), ('Data4',c_ubyte*8)]
-    def __repr__(self):
-        out = '{'
-        out += hex(self.Data1)[2:-1].zfill(8)
-        out += '-'
-        out += hex(self.Data2)[2:].zfill(4)
-        out += '-'
-        out += hex(self.Data3)[2:].zfill(4)
-        out += '-'
-        out += hex(self.Data4[0])[2:].zfill(1)
-        out += hex(self.Data4[1])[2:].zfill(1)
-        out += '-'
-        items = [hex(self.Data4[x])[2:].zfill(1) for x in range(2,8)]
-        for item in items:
-            out += item
-        out += '}'
-        return out
 class DeviceInterfaceData(Structure):
     _fields_ = [('cbSize',c_ulong), ('InterfaceClassGuid',GUID),('Flags',c_ulong),('Reserved',POINTER(c_ulong))]
-    def __repr__(self):
-        out = ''
-        out += 'cBsize: ' + str(self.cbSize) + '\n'
-        out += 'Interface Class: ' + repr(self.InterfaceClassGuid) + '\n'
-        out += 'Flags: ' + repr(self.Flags) + '\n'
-        out += 'Reserved: '+ repr(self.Reserved) + '\n'
-        return out
 
 #the following classes are defined so that we can create an OVERLAPPED structure.
 class struct(Structure):
     _fields_ = [("Offset",c_ulong),("OffsetHigh",c_ulong)]
 class union(Union):
     _fields_ = [("",struct),("Pointer",c_void_p)]
-class OVERLAPPED(Structure):
-    _fields_ = [("Internal",POINTER(c_ulong)), ("Internal_High",POINTER(c_ulong)),("",union),("hEvent",c_void_p)]
+#class OVERLAPPED(Structure):
+#    _fields_ = [("Internal",POINTER(c_ulong)), ("Internal_High",POINTER(c_ulong)),("",union),("hEvent",c_void_p)]
 
 class HidAttributes(Structure):
     _fields_ = [('Size',c_ulong),('VendorID',c_ushort),('ProductID',c_ushort),('VersionNumber',c_ushort)]
+
 
 def OpenDevice(index):
     guid = GUID()
@@ -138,15 +116,10 @@ def OpenDevice(index):
 
 
     kernel.CreateFileA.restype = c_void_p
-    #devicepath = '\\\\.\\' + devicepath[4:]
-
-    #tmp = create_string_buffer(devicepath)#,len(devicepath)+1)
-    #tmp[-1] = '\0'
-    #print "The device's address is: " + devicepath
-    #devicepath = '\\\\.\\' + devicepath[4:]
+    
     handle = kernel.CreateFileA(detail.DevicePath,GENERIC_READ | GENERIC_WRITE,
                             FILE_SHARE_READ | FILE_SHARE_WRITE, None,
-                            OPEN_EXISTING, FILE_FLAG_OVERLAPPED, None)
+                            OPEN_EXISTING, None, None)
     #print kernel.GetLastError()
     if handle == -1:
         error = kernel.GetLastError() 
@@ -159,81 +132,104 @@ def OpenDevice(index):
         
         kernel.CloseHandle(handle)
         #return error
-    #else:
-        #print "THE ADDRESS OF THE DEVICE'S INPUT STREAM IS: "+str(self.handle)
-    #pass
-    kernel.CreateEventA.restype = c_void_p
-    event = kernel.CreateEventA(None, True, True, "")
-    overlapped = OVERLAPPED()
-    overlapped.Offset = 0
-    overlapped.OffsetHigh = 0
-    overlapped.hEvent = event
-    
-    return (handle, overlapped)
+        
+    return handle
 
+def OpenDevices(vendorid=None,productid=None):
+    """opens all hid devices currently on the system (That we have access to,)
+    connects to all of them, and disconnects and removes them from the list if their vendorid and productid
+    don't match the parameters.  If the parameters' default values of None remain, the list will be returned
+    in its entirety with all devices connected (read the HID attributes already, so devicelist[0].vendorid can
+    be used to check the first returned item's vendor id, for example.)"""
+    x = 0
+    devices = []
+    end = False
+    while not end:
+        try:
+            handle = OpenDevice(x)
+            devices.append(HIDDevice(handle))
+            x += 1
+        except AccessDeniedError: pass
+        except PathNotFoundError:
+            end = True
+        #don't catch UnknownHandleError.
 
-def Connect(handle):
-    attrib = HidAttributes()
-    attrib.Size = sizeof(attrib)
-    hid.HidD_GetAttributes(handle,byref(attrib))# add a try here
-    return attrib
-    #print "|VendorID: %s, Product ID: %s, Version: %s" % (attrib.VendorID, attrib.ProductID, attrib.VersionNumber)
+        return devices
+        
 
+class HIDDevice(object):
+    def __init__(self, handle):
+        self.handle = handle
+        self.connected = False
+        self.connect()
+        
+    def connect(self):
+        """precondition: self.handle is pointing to a valid device.
+           postcondition: self.vendorid, self.productid, self.version set."""
+        
+        attrib = HidAttributes()
+        attrib.Size = sizeof(attrib)
+        hid.HidD_GetAttributes(self.handle,byref(attrib))
+        self.vendorid = attrib.VendorID
+        self.productid = attrib.ProductID
+        self.version = attrib.VersionNumber
+        self.connected = True
+        #print "|VendorID: %s, Product ID: %s, Version: %s" % (attrib.VendorID, attrib.ProductID, attrib.VersionNumber)
 
-def Disconnect(handle):
-    #if self.connected:
-    if kernel.CloseHandleA(handle):# and kernel.CloseHandleA(self.event):
-        #self.connected = False
+    def disconnect(self):
+        if self.connected:
+            if kernel.CloseHandleA(self.handle):# and kernel.CloseHandleA(self.event):
+                self.connected = False
+                return True
+            return False
         return True
-    return False
-
-def Write(handle, overlapped, data):
-    """ data should be a pointer to a ctypes byte array."""
-    temp = c_ubyte * (22)#this makes this library less useful for other things, but whatever.
-    temp = temp()
-    #temp.value = data
-    #print temp
-    #print "The data is: "
-    #print data
-    #print "Here is each item individually"
-    print "DATA IS: ",data
-    length = 22
-    if len(data) < 23: length = len(data)
-    for x in range( length-1 ): #ignore the first value so we don't have to mess with the hid output report ( we don't care about it.)
-        #print data[x]
-        temp[x] = data[x+1]
-    #temp[x+1] = 0
-    #print type(temp)
-    #print temp
-    #temp.value = data
-    #result = hid.HidD_SetOutputReport(handle, byref(temp), c_int(len(data)-1))
-    bytes_written = c_int(-1)
-    #result = hid.HidD_SetOutputReport(handle,byref((c_byte * 3)(0x12,0x00,0x31)),c_int(3))
-    result = kernel.WriteFile(handle,byref(temp),c_int(22),byref(bytes_written),byref(overlapped))
-
-    #
-    #Check here if overlapped is set to true (the write succeeded.)
-    #
     
-    print "%s bytes written. " % bytes_written
-    if result: print "Report was set successfully!"
-    else: print " Result wasn't set correctly."
+    def write(self, data):
+        """ data should be a list of numbers between 0 and 255 (no checking occurs at the moment).
+        returns True if the write succeeded, and False if it didn't."""
+        temp = c_ubyte * (22)#this makes this library less useful for other things, but whatever.
+        temp = temp()
+        print "DATA IS: ",data
+        length = 22
+        if len(data) < 23: length = len(data)
+        for x in range( length-1 ): #ignore the first value so we don't have to mess with the hid output report ( we don't care about it.)
+            #print data[x]
+            temp[x] = data[x+1]
+        print temp
+        #temp[x+1] = 0
+        #print type(temp)
+        #print temp
+        #temp.value = data
+        #result = hid.HidD_SetOutputReport(handle, byref(temp), c_int(len(data)-1))
+        bytes_written = c_int(-1)
+        #result = hid.HidD_SetOutputReport(handle,byref((c_byte * 3)(0x12,0x00,0x31)),c_int(3))
+        result = kernel.WriteFile(self.handle,byref(temp),c_int(22),byref(bytes_written),None)
 
-def Read(handle, overlapped, timeout=1000,bufsize=0x16):
-    temp = c_ubyte * bufsize
-    temp = temp()
-    bytes_read = c_int(10)
-    #print type(overlapped)
-    kernel.ReadFile(handle, byref(temp),bufsize,byref(bytes_read),byref(overlapped))
-    #print x
-    kernel.GetOverlappedResult(handle, byref(overlapped), byref(bytes_read), True)
-    #result = kernel.WaitForSingleObject(overlapped.hEvent, timeout)
-    #print overlapped
-    #if result == 0:#WAIT_OBJECT_0 which is STATUS_WAIT_0 (which is 0) + 0
-    #    kernel.ResetEvent(overlapped.hEvent)
-    return temp
-    #print "Read Timed Out"
-    #something unexpected happened (implicit else)
-    #kernel.CancelIo(handle)
-    #kernel.ResetEvent(overlapped.hEvent)
 
+        
+        print "%s bytes written. " % bytes_written
+        if result: return True
+        return False
+
+    def read(handle, overlapped, timeout=1000,bufsize=0x16):
+        temp = c_ubyte * bufsize
+        temp = temp()
+        bytes_read = c_int(10)
+        #print type(overlapped)
+        kernel.ReadFile(handle, byref(temp),bufsize,byref(bytes_read),byref(overlapped))
+        #print x
+
+        #result = kernel.WaitForSingleObject(overlapped.hEvent, timeout)
+        #print overlapped
+        #if result == 0:#WAIT_OBJECT_0 which is STATUS_WAIT_0 (which is 0) + 0
+        #    kernel.ResetEvent(overlapped.hEvent)
+        return temp
+        #print "Read Timed Out"
+        #something unexpected happened (implicit else)
+        #kernel.CancelIo(handle)
+        #kernel.ResetEvent(overlapped.hEvent)
+x = OpenDevices(0x057e,0x0306)
+print x[0].vendorid
+x[0].write([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22])
+#print x[0].vendorid
+#def OpenAllDevices(

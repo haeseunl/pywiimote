@@ -1,4 +1,11 @@
 #shouldn't we make sure that the devices we tried to open actually opened?
+#yes, we can do this by having a initDevice or something
+#function that writes the current config settings to the wii remote.
+# if the write is unsuccessful, the remote is considered disconnected.
+#in fact, any write that is unsuccessful we should just consider the remote
+#disconnected.
+#and just tell users that they should write something to the device before
+#they start using it so they can know if it's connected or not.
 import hid
 import sys
 from hid import AccessDeniedError, PathNotFoundError
