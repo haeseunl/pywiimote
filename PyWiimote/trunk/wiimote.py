@@ -8,9 +8,9 @@
 #they start using it so they can know if it's connected or not.
 #
 #
-import hid
+import HID
 import sys
-from hid import AccessDeniedError, PathNotFoundError
+#from hid import AccessDeniedError, PathNotFoundError
 VENDORID = 0x057e
 PRODUCTID = 0x0306
 
@@ -56,8 +56,8 @@ class Wiimote(object):
         self.buttons = {'Two':False,'One':False,'B':False,'A':False,'-':False,'+':False,'Home':False,
                         'Left':False,'Right':False,'Up':False,'Down':False}
         
-    def __del__(self):
-        hid.Disconnect(self.handle)
+    #def __del__(self):
+    #    hid.Disconnect(self.handle)
     def connectWiimote(self):
         self.write([0x52,0x12, 0x00, 0x30])
 
@@ -166,7 +166,9 @@ class Wiimote(object):
                                                    self.rumble)
     
 #Vendor ID, 0x057e. Product ID, 0x0306
-wiimotes = []
+wiimotes = HID.OpenDevices(VENDORID,PRODUCTID)
+print wiimotes
+"""
 x = 0
 device = True
 while device:
@@ -186,7 +188,7 @@ while device:
     except PathNotFoundError: #reached the end of the device list, probably.
         device = False
     x += 1
-
+"""
 
 
 # this is Cliff's version pythonified, probably more accurate as far as sensitivity. Works pretty much the same for me.

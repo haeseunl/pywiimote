@@ -116,13 +116,13 @@ def OpenDevice(index):
 
 
     kernel.CreateFileA.restype = c_void_p
-    
     handle = kernel.CreateFileA(detail.DevicePath,GENERIC_READ | GENERIC_WRITE,
                             FILE_SHARE_READ | FILE_SHARE_WRITE, None,
                             OPEN_EXISTING, None, None)
     #print kernel.GetLastError()
     if handle == -1:
-        error = kernel.GetLastError() 
+        error = kernel.GetLastError()
+        print error
         if error == ERROR_ACCESS_DENIED:
             raise AccessDeniedError
         elif error == ERROR_PATH_NOT_FOUND:
@@ -140,24 +140,34 @@ def OpenDevices(vendorid=None,productid=None):
     connects to all of them, and disconnects and removes them from the list if their vendorid and productid
     don't match the parameters.  If the parameters' default values of None remain, the list will be returned
     in its entirety with all devices connected (read the HID attributes already, so devicelist[0].vendorid can
-    be used to check the first returned item's vendor id, for example.)"""
+    be used to check the first returned item's vendor id, for example.)
+    refer to HIDDevice.connect for pitfalls."""
     x = 0
     devices = []
     end = False
     while not end:
         try:
             handle = OpenDevice(x)
-            devices.append(HIDDevice(handle))
-            x += 1
-        except AccessDeniedError: pass
+            temp = HIDDevice(handle)
+            if temp.vendorid in [vendorid, None] and temp.productid in [productid, None]:
+                devices.append(temp)
+            else: #disconnect from them, just to be sure we don't leak anything.
+                temp.disconnect()
+            
+            
+        except AccessDeniedError:
+            pass
         except PathNotFoundError:
+            #if we're here we've run out of valid paths
+            #so it's time to exit.
             end = True
+        x += 1
         #don't catch UnknownHandleError.
-
-        return devices
+    return devices
         
 
 class HIDDevice(object):
+    
     def __init__(self, handle):
         self.handle = handle
         self.connected = False
@@ -165,7 +175,10 @@ class HIDDevice(object):
         
     def connect(self):
         """precondition: self.handle is pointing to a valid device.
-           postcondition: self.vendorid, self.productid, self.version set."""
+           postcondition: self.vendorid, self.productid, self.version set.
+           success of call to connect does not mean that a device is active.
+           vendor, product and version are all available whether the device
+           is active or not."""
         
         attrib = HidAttributes()
         attrib.Size = sizeof(attrib)
@@ -178,24 +191,28 @@ class HIDDevice(object):
 
     def disconnect(self):
         if self.connected:
-            if kernel.CloseHandleA(self.handle):# and kernel.CloseHandleA(self.event):
+            if kernel.CloseHandle(self.handle):# and kernel.CloseHandleA(self.event):
                 self.connected = False
                 return True
             return False
         return True
+    def __del__(self):
+        """automatically disconnect, just to make sure we don't leave
+        a file handle open."""
+        self.disconnect()
     
-    def write(self, data):
+    def write(self, data, length=22):
         """ data should be a list of numbers between 0 and 255 (no checking occurs at the moment).
         returns True if the write succeeded, and False if it didn't."""
-        temp = c_ubyte * (22)#this makes this library less useful for other things, but whatever.
+        temp = c_ubyte * (length)
         temp = temp()
         print "DATA IS: ",data
-        length = 22
-        if len(data) < 23: length = len(data)
-        for x in range( length-1 ): #ignore the first value so we don't have to mess with the hid output report ( we don't care about it.)
+        length = min(len(data), length)
+        # we ignore the first value.  this is not the case if using hidD.setOutputReport.
+        for x in range( length-1 ):
             #print data[x]
             temp[x] = data[x+1]
-        print temp
+        #print temp
         #temp[x+1] = 0
         #print type(temp)
         #print temp
@@ -204,21 +221,20 @@ class HIDDevice(object):
         bytes_written = c_int(-1)
         #result = hid.HidD_SetOutputReport(handle,byref((c_byte * 3)(0x12,0x00,0x31)),c_int(3))
         result = kernel.WriteFile(self.handle,byref(temp),c_int(22),byref(bytes_written),None)
-
-
-        
+        print kernel.GetLastError()
         print "%s bytes written. " % bytes_written
+        print "result: " + str(result)
         if result: return True
         return False
 
-    def read(handle, overlapped, timeout=1000,bufsize=0x16):
+    def read(self,bufsize=0x16):
         temp = c_ubyte * bufsize
         temp = temp()
-        bytes_read = c_int(10)
+        bytes_read = c_int(-1)
         #print type(overlapped)
-        kernel.ReadFile(handle, byref(temp),bufsize,byref(bytes_read),byref(overlapped))
+        kernel.ReadFile(self.handle, byref(temp),bufsize,byref(bytes_read),None)
         #print x
-
+        #print bytes_read
         #result = kernel.WaitForSingleObject(overlapped.hEvent, timeout)
         #print overlapped
         #if result == 0:#WAIT_OBJECT_0 which is STATUS_WAIT_0 (which is 0) + 0
@@ -228,8 +244,12 @@ class HIDDevice(object):
         #something unexpected happened (implicit else)
         #kernel.CancelIo(handle)
         #kernel.ResetEvent(overlapped.hEvent)
-x = OpenDevices(0x057e,0x0306)
-print x[0].vendorid
-x[0].write([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22])
+#x = OpenDevices(0x057e,0x0306)
+#print x[0].read()
+#print x[1].read()
+#x[0].write([0x52,0x12, 0x00, 0x30])
+#x[1].write([0x52,0x12, 0x00, 0x30])
+#while True:
+#    print x[1].read()
 #print x[0].vendorid
 #def OpenAllDevices(
