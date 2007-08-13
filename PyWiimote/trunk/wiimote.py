@@ -43,7 +43,7 @@ MODE_ACC_IR = 0x33
 MODE_FULL = 0x3e
 
 class Wiimote(object):
-    """ currently only works on XP, but that's based on the hid library, not this library."""
+    """ this library is platform-independent but depends on the backend HID.py"""
     def __init__(self, handle):
         """handle is an HIDDevice object """
         self.handle = handle
@@ -58,6 +58,7 @@ class Wiimote(object):
     #def __del__(self):
     #    hid.Disconnect(self.handle)
     def connectWiimote(self):
+        """ equivalent to sending the setup code yourself, just for convenience."""
         self.write([0x52,0x12, 0x00, 0x30])
         self.updateLEDs([0,0,0,0])
 
@@ -117,6 +118,9 @@ class Wiimote(object):
         self.send(CMD_SET_REPORT, RID_LEDS, [temp])
 
     def updateRumble(self):
+        """Only call this if you want to update rumble only.
+        If you want to update rumble as well as other things,
+        just set self.rumble and use one of the other update functions."""
         if self.rumble:
             self.send(CMD_SET_REPORT, RID_STATUS, [0x01]) #RID_MODE used b/c it's different from RID_LEDS
         else:
@@ -147,15 +151,9 @@ class Wiimote(object):
         #for x in range(len(readresult)):
         #        sys.stdout.write(readresult[x])
         #sys.stdout.write('\n')
-        self.printStatus()
-        if self.buttons['A']:
-            if not self.rumble:
-                self.rumble = True
-                self.updateRumble()
-        else:
-            if self.rumble:
-                self.rumble = False
-                self.updateRumble()
+
+        #self.printStatus()
+        
 
             
     def printStatus(self):
@@ -170,11 +168,12 @@ class Wiimote(object):
         print "LEDs: [%s,%s,%s,%s], Rumble: %s" % (self.leds[0],self.leds[1],
                                                    self.leds[2],self.leds[3],
                                                    self.rumble)
-    
-#Vendor ID, 0x057e. Product ID, 0x0306
-wiimote = HID.OpenDevices(VENDORID,PRODUCTID)
-print wiimote
-wiimotes = [Wiimote(wiimote[0])]
+
+def get_wiimotes():
+    """Returns a collection of wiimote objects."""
+    targets = HID.OpenDevices(VENDORID,PRODUCTID)
+    #print wiimote
+    return [Wiimote(wiimote) for wiimote in targets ]
 """
 x = 0
 device = True
@@ -202,7 +201,6 @@ while device:
 #wiimotes[0].send(0x52,0x12,[0x00,0x30])
 
 
-wiimotes[0].connectWiimote()
 
 """
 wiimotes[0].setMode(MODE_ACC_IR,0)
@@ -219,22 +217,7 @@ wiimotes[0].sendData([8],0x04B00030) # Enable data output. Can be specified firs
 
 """
 #wiimotes[0].updateLEDs()
-import time
-def hex2bin(item):
-    bin = [[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
-           [1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]]
-    return bin[item % 16]
-offset = 0
-ledstatus = 0
-while 1:
-    wiimotes[0].updateStatus()
-    if wiimotes[0].buttons['+'] == True:
-        ledstatus += 1
-        wiimotes[0].updateLEDs(hex2bin(ledstatus))
-    if wiimotes[0].buttons['-'] == True:
-        ledstatus -= 1
-        #if ledstatus <= 0: ledstatus = 0
-        wiimotes[0].updateLEDs(hex2bin(ledstatus))
+
     
     
 
