@@ -44,11 +44,10 @@ MODE_FULL = 0x3e
 
 class Wiimote(object):
     """ currently only works on XP, but that's based on the hid library, not this library."""
-    def __init__(self, oparg):
-        """oparg is an argument we pass to the hid operations.  We don't care
-        what the """
+    def __init__(self, handle):
+        """handle is an HIDDevice object """
         self.handle = handle
-        self.overlapped = overlapped
+        #self.overlapped = overlapped
         self.leds = [0,0,0,0]
         self.rumble = False
         self.continuous = False
@@ -60,31 +59,35 @@ class Wiimote(object):
     #    hid.Disconnect(self.handle)
     def connectWiimote(self):
         self.write([0x52,0x12, 0x00, 0x30])
+        self.updateLEDs([0,0,0,0])
 
     def write(self, data):
-        hid.Write(self.handle, self.overlapped, data)
+        print "writing:"
+        self.handle.write(data)
         
     def read(self):
-        return hid.Read(self.handle, self.overlapped)
+        return self.handle.read()
     def send(self,cmd,report,data):
-        temp = [cmd]
-        temp.append(report)
-        temp.extend(data)
-        self.write(temp)
+        #these should all be strings.
+        tmp = [cmd,report]
+        for item in data:
+            tmp.append(item)
+        self.write(tmp)
         #Send cmd, report, data to Wiimote. If cmd is CMD_SET_REPORT, this amounts to sending data to the specified report.
         #Interface code to Wiimote goes here.
 
     def setMode(self,mode,cont):
         """ cont = whether you want input to be continuous or only on state changes."""
+        #wtf is mode?
         aux = 0
         if self.rumble:
                 aux |= 0x01
         if cont:
                 aux |= 0x04
         self.continuous = cont
-        self.send(CMD_SET_REPORT,RID_MODE,[aux,mode])
+        self.send(CMD_SET_REPORT,RID_MODE, [aux, mode])
 
-    # size here is redundant, since we can just use len(data) if we want.
+
     def sendData(self,data,offset): # see writing to data: [[#On-board Memory].
         of1 = offset >> 24 & 0xFF #extract offset bytes
         of2 = offset >> 16 & 0xFF
@@ -96,18 +99,20 @@ class Wiimote(object):
         # format is [OFFSET (BIGENDIAN),SIZE,DATA (16bytes)]
         self.send(CMD_SET_REPORT,RID_WMEM,[of1,of2,of3,of4,len(data)]+data2)        
 
-    def updateLEDs(self):
+    def updateLEDs(self,leds):
         """also makes sure rumble is current, but updateRumble should be used
         in general for rumble updates, because if changes are too fast, calling this
         function too frequently will default out the remote, causing the LEDs to
         flash. On the contrary, it's an easy way to flash the LEDs if you have need for that.
         """
+        self.leds = leds
+        
         temp = 0x00
         if self.rumble:
             temp = 0x01
         addvals = [0x10,0x20,0x40,0x80]
         for x in range(4):
-            if self.leds[x] != 0:
+            if leds[x] != 0:
                 temp |= addvals[x]
         self.send(CMD_SET_REPORT, RID_LEDS, [temp])
 
@@ -151,6 +156,7 @@ class Wiimote(object):
             if self.rumble:
                 self.rumble = False
                 self.updateRumble()
+
             
     def printStatus(self):
         line = ['A','B','-','+','Home']
@@ -166,8 +172,9 @@ class Wiimote(object):
                                                    self.rumble)
     
 #Vendor ID, 0x057e. Product ID, 0x0306
-wiimotes = HID.OpenDevices(VENDORID,PRODUCTID)
-print wiimotes
+wiimote = HID.OpenDevices(VENDORID,PRODUCTID)
+print wiimote
+wiimotes = [Wiimote(wiimote[0])]
 """
 x = 0
 device = True
@@ -194,20 +201,41 @@ while device:
 # this is Cliff's version pythonified, probably more accurate as far as sensitivity. Works pretty much the same for me.
 #wiimotes[0].send(0x52,0x12,[0x00,0x30])
 
+
+wiimotes[0].connectWiimote()
+
 """
-wiimotes[0].setmode(MODE_ACC_IR,0)
+wiimotes[0].setMode(MODE_ACC_IR,0)
 #wiimotes[0].send(CMD_SET_REPORT, RID_LEDS, [0x10])
 wiimotes[0].send(CMD_SET_REPORT,RID_IR_EN,[FEATURE_ENABLE])
 wiimotes[0].send(CMD_SET_REPORT,RID_IR_EN2,[FEATURE_ENABLE])
-wiimotes[0].senddata([1],0x04B00030) # seems to enable the IR peripheral
-wiimotes[0].senddata([0x02, 0x00, 0x00, 0x71, 0x01, 0x00, 0xaa, 0x00, 0x64],0x04B00000)
-wiimotes[0].senddata([0x63, 0x03],0x04B0001A)
+wiimotes[0].sendData([1],0x04B00030) # seems to enable the IR peripheral
+wiimotes[0].sendData([0x02, 0x00, 0x00, 0x71, 0x01, 0x00, 0xaa, 0x00, 0x64],0x04B00000)
+wiimotes[0].sendData([0x63, 0x03],0x04B0001A)
 # this seems incorrect - for FULL IR mode, we must use FULL wiimote mode (0x3e).
 # otherwise the data is probably garbled.
-wiimotes[0].senddata([IR_MODE_FULL],0x04B00033) 
-wiimotes[0].senddata([8],0x04B00030) # Enable data output. Can be specified first it seems, we don't really need to be in mode 1.
+wiimotes[0].sendData([IR_MODE_FULL],0x04B00033) 
+wiimotes[0].sendData([8],0x04B00030) # Enable data output. Can be specified first it seems, we don't really need to be in mode 1.
+
 """
-
-
+#wiimotes[0].updateLEDs()
+import time
+def hex2bin(item):
+    bin = [[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+           [1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]]
+    return bin[item % 16]
+offset = 0
+ledstatus = 0
+while 1:
+    wiimotes[0].updateStatus()
+    if wiimotes[0].buttons['+'] == True:
+        ledstatus += 1
+        wiimotes[0].updateLEDs(hex2bin(ledstatus))
+    if wiimotes[0].buttons['-'] == True:
+        ledstatus -= 1
+        #if ledstatus <= 0: ledstatus = 0
+        wiimotes[0].updateLEDs(hex2bin(ledstatus))
+    
+    
 
 
