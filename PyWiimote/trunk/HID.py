@@ -221,9 +221,10 @@ class HIDDevice(object):
         bytes_written = c_int(-1)
         #result = hid.HidD_SetOutputReport(handle,byref((c_byte * 3)(0x12,0x00,0x31)),c_int(3))
         result = kernel.WriteFile(self.handle,byref(temp),c_int(22),byref(bytes_written),None)
-        print kernel.GetLastError()
-        print "%s bytes written. " % bytes_written
-        print "result: " + str(result)
+
+        #print kernel.GetLastError()
+        #print "%s bytes written. " % bytes_written
+        #print "result: " + str(result)
         if result: return True
         return False
 

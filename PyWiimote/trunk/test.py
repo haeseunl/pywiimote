@@ -1,4 +1,6 @@
+print "hi"
 from wiimote import *
+
 wiimotes = get_wiimotes()
 print "You have the following wiimotes connected to the system:"
 print wiimotes
@@ -16,6 +18,7 @@ ledstatus = 1
 player_1.updateLEDs(hex2bin(ledstatus))
 while 1:
     player_1.updateStatus()
+    print "----------------------"
     player_1.printStatus()
     if player_1.buttons['+']:
         ledstatus += 1

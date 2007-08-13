@@ -63,7 +63,7 @@ class Wiimote(object):
         self.updateLEDs([0,0,0,0])
 
     def write(self, data):
-        print "writing:"
+        print "writing to Wiimote"
         self.handle.write(data)
         
     def read(self):
