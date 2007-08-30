@@ -6,7 +6,7 @@
 #disconnected.
 #and just tell users that they should write something to the device before
 #they start using it so they can know if it's connected or not.
-#
+#but we can't determine the success of a write so this strategy is nil.
 #
 import HID
 import sys
@@ -59,7 +59,7 @@ class Wiimote(object):
     #    hid.Disconnect(self.handle)
     def connectWiimote(self):
         """ equivalent to sending the setup code yourself, just for convenience."""
-        self.write([0x52,0x12, 0x00, 0x30])
+        self.write([0x52,0x12, 0x00, MODE_BASIC])
         self.updateLEDs([0,0,0,0])
 
     def write(self, data):
@@ -105,6 +105,7 @@ class Wiimote(object):
         in general for rumble updates, because if changes are too fast, calling this
         function too frequently will default out the remote, causing the LEDs to
         flash. On the contrary, it's an easy way to flash the LEDs if you have need for that.
+        actually, I haven't gotten the LEDs to flash using this before.  I just read it in the docs.
         """
         self.leds = leds
         
@@ -168,6 +169,9 @@ class Wiimote(object):
         print "LEDs: [%s,%s,%s,%s], Rumble: %s" % (self.leds[0],self.leds[1],
                                                    self.leds[2],self.leds[3],
                                                    self.rumble)
+
+    def enableAccel(self):
+        
 
 def get_wiimotes():
     """Returns a collection of wiimote objects."""
